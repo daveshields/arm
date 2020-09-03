@@ -41,12 +41,15 @@
 # use  name .req reg   @ create alias for register 'reg'  with name 'name'
 
 	w0	.req	r0
-	wa	.req	r2
-	wb	.req	r3
-	wc	.req	r4
-	xl	.req	r5
-	xr	.req	r6
-	xs	.req	r??
+	w1	.req	r1
+	w2	.req	r2
+	wa	.req	r3
+	wb	.req	r4
+	wc	.req	r5
+	xl	.req	r6
+	xr	.req	r7
+	cp	.req	r8
+	xs	.req	sp
 
 #	%define log_cfp_b 2
 #	%define log_cfp_c 2

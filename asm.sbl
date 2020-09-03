@@ -263,7 +263,7 @@ genz_end
 comregs
 
 	line p.comregs =				:f(comregs1)
-	word = eq(size(word),2) differ(t = register(word)) t
+	word = eq(size(word),2) differ(t = word) t
 	comregs = comregs pre word			:(comregs)
 
 comregs1 comregs = comregs line				:(return)
@@ -287,6 +287,116 @@ error
 	output = 'too many errors, quitting'		:(end)
 
 error_end
+-stitl	fetch(argnum)
+	define('fetch(iarg)iarg,t1,t2')			:(fetch_end)
+
+*	get argument to register and return that register.
+
+*	The valid types are 3, 4, and 7-15.
+
+fetch
+
+	iarg = eq(argnum,1) arg1
+	iarg = eq(argnum,2) arg2
+	iarg = eq(argnum,3) arg3
+
+* output = 'fetch text <' text(iarg) '>  type <' type(iarg) '>'
+	eq(type(iarg),3)					:s(fetch_ok)
+	eq(type(iarg),4)					:s(fetch_ok)
+	lt(itype(iarg,7)					:s(fetch_err)
+	gt(itype(iarg,15)					:s(fetch_err)
+
+fetch_err
+
+	error('fetch type not valid, but is ' type(iarg)	:(freturn)
+
+fetch_ok
+
+								:f($('fetch_' type(iarg)))
+
+fetch_3
+fetch_4
+
+*  wlbl, clbl
+
+   fetch = tmem '[' text(iarg) ']'				:(return)
+
+fetch_5
+fetch_6
+
+*  elbl, plbl
+
+   fetch = text(iarg)						:(return)
+
+fetch_7
+fetch_8
+
+*  w,x, map register name
+
+	fetch = text(iarg)					:(return)
+
+fetch_9
+
+*  (x), register indirect
+
+	genop('ldr',w0,'[' text(iarg) ']')
+	fetch = w0						:(return)
+
+fetch_10
+
+*  (x)+, register indirect, post increment
+
+*	generate increment of the register, load from the register, 
+*	then modify the corresponding argument to be _(xl)_.
+
+	genaop(tstmt(,'add', substr(text(iarg),2,2), '$' cfp_b))
+	genbop('ldr',w0, '[' substr(text(iarg),2,2) ']')
+
+*	strip off the plus sign.
+
+	iarg = minarg(type(iarg), substr(1,4,iarg))		:(fetch_done)
+
+fetch_11
+
+*	-(x), register indirect, pre decrement
+
+*	generate  decrement of  register, load from the register, then modify the corresponding 
+*	argument to be _(xl)_.
+
+	genaop(tstmt(,'sub', substr(text(iarg),3,2), '$' cfp_b))
+	genbop('ldr',w0, '[' substr(text(iarg),3,2) ']')
+
+*	strip off the negative  sign.
+
+	iarg = minarg(type(iarg), substr(2,4,iarg))		:(fetch_done)
+
+fetch_12
+fetch_13
+
+*  int(x)
+*  dlbl(x)
+
+
+	text(iarg) break('(') . t1 '(' len(2) . t2
+	fetch = tmem '[(cfp_b*' t1 ')+' t2 ']':(return)
+
+fetch_14
+fetch_15
+
+*	name(x), where name is in working section
+
+	text(iarg) break('(') . t1 '(' len(2) . t2
+	fetch = tmem '[' t1 '+'  t2 ']'	:(return)
+
+fetch_done
+
+*	adjust appropriate argument register.
+
+	arg1 = eq(argnum,1) iarg
+	arg2 = eq(argnum,2) iarg
+	arg3 = eq(argnum,3) iarg				:(return)
+
+fetch_end
 -stitl genaop(stmt)
 	define('genaop(stmt)')				:(genaop_end)
 
@@ -353,7 +463,7 @@ getarg
 	tmem = (differ(imem) '', 'm_word ')
 	l1 = text(iarg)
 	l2 = type(iarg)
-	eq(l2)						:f($(getargcase[l2]))
+	eq(l2)						:f($('getarg_c.' l2))
 
 getarg_c.1
 	getarg = l1					:(return)
@@ -386,14 +496,14 @@ getarg_c.8
 
 *  w,x, map register name
 
-	getarg = register(l1)				:(return)
+	getarg = l1					:(return)
 
 getarg_c.9
 
 *  (x), register indirect
 
 	l1 len(1) len(2) . l2
-	l2 = register(l2)
+	l2 = l2
 	getarg = tmem '[' l2 ']'			:(return)
 
 getarg_c.10
@@ -404,7 +514,7 @@ getarg_c.10
 *  for all the other regs, and either could be used.
 
 	l1 = substr(l1,2,2)
-	t1 = register(l1)
+	t1 = l1
 	getarg = tmem '[' t1 ']'
 	(ident(l1,xs) genaop(tstmt(,'add',t1,'cfp_b'))) :s(return)
 	genaop(tstmt(,'lea',t1,'[' t1 '+cfp_b]'))	:(return)
@@ -413,7 +523,7 @@ getarg_c.11
 
 *	-(x), register indirect, pre decrement
 
-	t1 = register(substr(l1,3,2))
+	t1 = substr(l1,3,2)
 * output = 'getarg_c.11 t1 <' t1 '>'
 	getarg = tmem '[' t1 ']'
 	genbop(tstmt(,'lea',t1,'[' t1 '-cfp_b]'))	:(return)
@@ -426,7 +536,7 @@ getarg_c.13
 
 
 	l1 break('(') . t1 '(' len(2) . t2
-	getarg = tmem '[(cfp_b*' t1 ')+' register(t2) ']':(return)
+	getarg = tmem '[(cfp_b*' t1 ')+' t2 ']':(return)
 
 getarg_c.14
 getarg_c.15
@@ -434,7 +544,7 @@ getarg_c.15
 *	name(x), where name is in working section
 
 	l1 break('(') . t1 '(' len(2) . t2
-	getarg = tmem '[' t1 '+'  register(t2) ']'	:(return)
+	getarg = tmem '[' t1 '+'  t2 ']'	:(return)
 
 getarg_c.16 getarg = l1					:(return)
 
@@ -681,38 +791,8 @@ readline_2
 readline_eof
 
    readline = '	       end'				:(return)
+
 readline_end
--stitl	register(s)
-	define('register(s)')				:(register_end)
-
-*	returns target register for register *s*.
-*	fails if *s* is not a valid register name.
-
-register
-
-	register = $(s)
-	ident(register)					:s(freturn)
-							:(return)
-
-register_end
--stitl	reglow(s)
-	define('reglow(s)')				       :(reglow_end)
-
-*	returns name of low (rightmost byte) part of target register *s*.
-
-reglow
-
-	reglow = ident(s,'w0')	'al'			:s(return);* w0
-	reglow = ident(s,'wa')	'cl'			:s(return);* wa
-	reglow = ident(s,'wb')	'bl'			:s(return);* wb
-	reglow = ident(s,'wc')	'dl'			:s(return);* wc
-	reglow = ident(s,'rax') 'al'			:s(return);* w0
-	reglow = ident(s,'rbx') 'bl'			:s(return);* wa
-	reglow = ident(s,'rcx') 'cl'			:s(return);* wb
-	reglow = ident(s,'rdx') 'dl'			:s(return);* wc
-	error('bad argument to reglow')			:(return)
-
-reglow_end
 	define('skip_init(s)on,off')			:(skip_init_end)
 
 *	initialize the skip table used for instruction trace.
@@ -774,40 +854,16 @@ init
 
 *	target register assignments
 
-	cp = 'cp' 
+*	Map registers to their minimal names, since can use gnu as directive .req
+*	to map to the actual registers to be used.
 
 *	w0 is temp register
 
-	w0 = 'rax'
-
-	wa = 'rcx'
-
-	wb = 'rbx'
-	wb = 'wb'
-
-	wc = 'rdx'
-
-	ia = 'rbp'
-
-	cp = 'cp'
-
-	xl = 'rsi'
-	xl = 'xl'
-	xt = xl
-
-	xr = 'rdi'
-	xr = 'xr'
-
-	xs = 'rsp'
-
-	w0 = 'w0'; wa = 'wa'; wb = 'wb'; wc = 'wc'
-	xl = 'xl'; xr = 'xr'; xs = 'xs'; xt = xl
-
-*	_ia_ is mapped to _rbp_ in nasm.h.
-
-	ia = 'ia'
-
-*	cp is kept in memory
+	w0 = 'w0'; w1 = 'w1'; w2 = 'w2'
+	wa = 'wa'; wb = 'wb'; wc = 'wc'
+	xl = 'xl'; xr = 'wr'; xt = xl
+	ia = wc
+	cp = 'cp' 
 
 * symbolic target assignments
 
@@ -940,56 +996,22 @@ config_done
 .	sepchar break(sepchar) . incomment
 	sepchar rem . slineno
 
-*	dispatch table
-
-	getargcase = table(27)
-	getargcase[1] = .getarg_c.1;   getargcase[2] = .getarg_c.2
-	getargcase[3] = .getarg_c.3;   getargcase[4] = .getarg_c.4
-	getargcase[5] = .getarg_c.5;   getargcase[6] = .getarg_c.6
-	getargcase[7] = .getarg_c.7;   getargcase[8] = .getarg_c.8
-	getargcase[9] = .getarg_c.9;   getargcase[10] = .getarg_c.10
-	getargcase[11] = .getarg_c.11; getargcase[12] = .getarg_c.12
-	getargcase[13] = .getarg_c.13; getargcase[14] = .getarg_c.14
-	getargcase[15] = .getarg_c.15; getargcase[16] = .getarg_c.16
-	getargcase[17] = .getarg_c.17; getargcase[18] = .getarg_c.18
-	getargcase[19] = .getarg_c.19; getargcase[20] = .getarg_c.20
-	getargcase[21] = .getarg_c.21; getargcase[22] = .getarg_c.22
-	getargcase[23] = .getarg_c.23; getargcase[24] = .getarg_c.24
-	getargcase[25] = .getarg_c.25; getargcase[26] = .getarg_c.26
-	getargcase[27] = .getarg_c.27
-
-
-*	pifatal maps minimal opcodes for which no a code allowed
-*	to nonzero value. such operations include conditional
-*	branches with operand of form (x)+
-
 	pifatal = initmap(
-.	'aov[1]beq[1]bne[1]bge[1]bgt[1]bhi[1]ble[1]blo[1]'
-.	'blt[1]bne[1]bnz[1]ceq[1]cne[1]mfi[1]nzb[1]zrb[1]')
+.	'aov:1 beq:1 bne:1 bge:1 bgt:1 bhi:1 ble:1 blo:1 blt:1 bne:1 bnz:1 ceq:1 cne:1 mfi:1 nzb:1 zrb:1 ')
 
-*	     trace not working for mvc (x64)
+*	trace not working for mvc (x64)
 
-	is_executable = table(100)
-	s =
-+	'add adi adr anb aov atn '
-+	'bct beq bev bge bgt bhi ble blo blt bne bnz bod '
-+	'brn bri bsw btw bze ceq chk chp cmb cmc cmp cne csc '
-+	'cos ctb ctw cvd cvm dca dcv eti dvi dvr erb esw etx flc '
-+	'ica icp icv ieq ige igt ile ilt ine ino iov itr jmp '
-+	'jsr lch lct lcp lcw ldi ldr lei lnf lsh lsx mcb mfi mli mlr '
-+	'mnz mov mti mvw mwb ngi eti ngr nzb orb plc prc psc '
-+	'req rge rgt rle rlt rmi rne rno rov rsh rsx rti rtn sbi sbr '
-+	'sch scp sin sqr ssl sss sti str sub tan trc wtb xob zer '
-+	'zgb zrb'
-
-*	     don't trace mvc as doing so causes just 'end' to fail. sort out later. (ds 01/09/13)
-
-is_exec.1
-
-	s len(3) . opc ' ' =				:f(is_exec.2)
-	is_executable[opc] = 1				:(is_exec.1)
-
-is_exec.2
+	is_executable = initmap(
++	'add:1 adi:1 adr:1 anb:1 aov:1 atn:1 '
++	'bct:1 beq:1 bev:1 bge:1 bgt:1 bhi:1 ble:1 blo:1 blt:1 bne:1 bnz:1 bod:1 '
++	'brn:1 bri:1 bsw:1 btw:1 bze:1 ceq:1 chk:1 chp:1 cmb:1 cmc:1 cmp:1 cne:1 csc:1 '
++	'cos:1 ctb:1 ctw:1 cvd:1 cvm:1 dca:1 dcv:1 eti:1 dvi:1 dvr:1 erb:1 esw:1 etx:1 flc:1 '
++	'ica:1 icp:1 icv:1 ieq:1 ige:1 igt:1 ile:1 ilt:1 ine:1 ino:1 iov:1 itr:1 jmp:1 '
++	'jsr:1 lch:1 lct:1 lcp:1 lcw:1 ldi:1 ldr:1 lei:1 lnf:1 lsh:1 lsx:1 mcb:1 mfi:1 mli:1 mlr:1 '
++	'mnz:1 mov:1 mti:1 mvw:1 mwb:1 ngi:1 eti:1 ngr:1 nzb:1 orb:1 plc:1 prc:1 psc:1 '
++	'req:1 rge:1 rgt:1 rle:1 rlt:1 rmi:1 rne:1 rno:1 rov:1 rsh:1 rsx:1 rti:1 rtn:1 sbi:1 sbr:1 '
++	'sch:1 scp:1 sin:1 sqr:1 ssl:1 sss:1 sti:1 str:1 sub:1 tan:1 trc:1 wtb:1 xob:1 zer:1 '
++	'zgb:1 zrb')
 
 *	various constants
 
@@ -1189,7 +1211,7 @@ opnext.1
 							:($('g_' incode))
 *	here if bad opcode
 
-ds01
+op_error
 
 	error('bad op-code')				:(opnext)
 
@@ -1214,58 +1236,8 @@ ds.typerr
 
 g_mov
 
-*	possible optimizations:
-
-*	change mov x,(xr)+ to
-*	     mov ax,x; stows
-
-*	do  mov (xl)+,wx as
-*	     lodsw
-*	     xchg ax,tx
-*	and also mov (xl)+,name as
-*	     lodsw
-*	     mov name,w0
-
-*	need to process memory-memory case
-
-*	change 'mov (xs)+,a' to 'pop a'
-*	change 'mov a,-(xs)' to 'push a'
-
-	i.src = arg2; i.dst = arg1
-	t.src = text(i.src); t.dst = text(i.dst)
-	ident(t.src,'(xl)+')				:s(mov_xlp)
-	ident(t.src,'(xt)+')				:s(mov_xtp)
-	ident(t.src,'(xs)+')				:s(mov_xsp)
-	ident(t.dst,'(xr)+')				:s(mov_xrp)
-	ident(t.dst,'-(xs)')				:s(mov_2)
-	memmem()
-	genop('mov',getarg(arg1),getarg(arg2))
-							:(opdone)
-mov_xtp
-mov_xlp
-
-	ident(t.dst,'(xr)+') genop('movs_w')		:s(opdone)
-	genop('lods_w')
-	ident(t.dst,'-(xs)') genop('push',w0)		:s(opdone)
-	genop('mov',getarg(i.dst),w0)			:(opdone)
-
-mov_xsp
-
-	ident(t.dst,'(xr)+')				:s(mov_xsprp)
-	genop('pop',getarg(i.dst))			:(opdone)
-
-mov_xsprp 
-
-	genop('pop',w0)
-	genop('stos_w')					:(opdone)
-
-mov_xrp genop('mov',w0,getarg(i.src))
-
-	genop('stos_w')					:(opdone)
-
-mov_2
-*	isreg(arg2) genop('push', register(t.src))	:s(opdone)
-	genop('push',getarg(i.src))			:(opdone)
+	r_src = fetch(2)
+	store(r_src,1)
 
 *	* 1.2  BRN  _plbl_    unconditional branch
 
@@ -1328,6 +1300,12 @@ g_iff
 
 *	* 1.5  ESW	end of branch switch table
 g_esw
+
+*	Use TBH instruction:
+*		tbh Rn, Rm, LSL #1
+*	where
+*		Rn is the base register for table. Can use PC if table follows this instruction.
+*		Rm is integer index. The offset into table is twice this value.
 
 	genop('segment .text')				:(opdone)
 
@@ -1399,7 +1377,7 @@ g_bri
 
 g_lei
 
-	t1 = register(text(arg1))
+	t1 = text(arg1)
 	genop('movzx',t1,'byte [' t1 '-1]' )		:(opdone)
 
 *	*   1.9	 JSR  _pnam_	  call procedure _pnam_
@@ -1637,67 +1615,6 @@ op.cmp
 
 *	lch requires separate cases for each first operand possibility.
 
-g_scg_0
-
-	leq('-',substr(t2,1,1))				:f(g_scg_1)
-	t2 break('(') len(1) len(2) . t3
-	genop('dec',register(t3))
-	(eq(cfp_b,cfp_c)
-.		 genop('dec',register(t3)), genop('sub',register(t3),'cfp_b'))
-
-g_scg_1
-
-	t2 break('(') len(1) len(2) . t3
-	eq(cfp_b,cfp_c) genop('mov',w0,t1,)
-	eq(cfp_b,cfp_c) genop('mov','[' register(t3) ']','al')
-	ne(cfp_b,cfp_c) genop('mov','m_char [' register(t3) ']',t1)
-*	see if postincrement needed.
-	t2 rtab(1) '+'					:f(g_scg_2)
-	(eq(cfp_b,cfp_c) 
-.		genop('inc',register(t3)), genop('add',register(t3),'cfp_b'))
-
-g_scg_2							:(opdone)
-g_scg_w
-
-*	here if moving character from work register, convert t1 to name of
-*	low part of the register.
-
-	t1 = (eq(cfp_b,cfp_c) reglow(getarg(arg1)), getarg(arg1))
-
-	ident(t2,'(xl)')				:s(g_scg_w.xl)
-	ident(t2,'-(xl)')				:s(g_scg_w.pxl)
-	ident(t2,'(xl)+')				:s(g_scg_w.xlp)
-	ident(t2,'(xr)')				:s(g_scg_w.xr)
-	ident(t2,'-(xr)')				:s(g_scg_w.pxr)
-	ident(t2,'(xr)+')				:s(g_scg_w.xrp)
-
-g_scg_w.xl
-
-	genop('mov','m_char [' register(xl) ']',t1)	:(opdone)
-
-g_scg_w.pxl
-
-	(eq(cfp_b,cfp_c)  genop('dec', xl), genop('sub',xl, 'cfp_b'))
-	genop('mov','m_char [' register(xl) ']',t1)	:(opdone)
-
-g_scg_w.xlp
-
-	genop('mov','m_char [' register(xl) ']',t1)
-	(eq(cfp_b,cfp_c)  genop('inc', xl), genop('add',xl, 'cfp_b')) :(opdone)
-
-g_scg_w.xr
-
-	genop('mov','m_char [' register(xr) ']',t1)	:(opdone)
-
-g_scg_w.pxr
-
-	(eq(cfp_b,cfp_c)  genop('dec', xr), genop('sub',xr, 'cfp_b'))
-	genop('mov','m_char [' register(xr) ']',t1)	:(opdone)
-
-g_scg_w.xrp
-
-	(eq(cfp_b,cfp_c) genop('mov','al',t1), genop('mov','eax',t1))
-	genop('stos_b')					:(opdone)
 
 
 *	*   7.8	 LSX  _w,(x)_
@@ -1959,8 +1876,11 @@ g_mnz
 *	Undefined if the result exceeds CFP$L .
 
 g_add
-	memmem()
-	genop('add',getarg(arg1),getarg(arg2))		:(opdone)
+
+	w2 = fetch(2)
+	w1 = fetch(1)
+	genop('add',w1,w1,w2)
+	store(w1, 1)					:(opdone)
 
 *	*   2.2	 SUB   _opn,opv_
 
@@ -1969,20 +1889,33 @@ g_add
 
 g_sub
 
-	memmem()
-	genop('sub',getarg(arg1),getarg(arg2))		:(opdone)
+
+	w2 = fetch(2)
+	w1 = fetch(1)
+	genop('sub',w1,w1,w2)
+	store(w1, 1)					:(opdone)
+
 
 *	*   2.3	 ICA   _opn_
 
+
 *	Increment address in  _opn_ *	Equivalent to ADD  _opn_,*unity
 
-g_ica	genop('add',getarg(arg1),'cfp_b')		:(opdone)
+g_ica	
+
+	w1 = fetch(1)
+	genop('add',w1,'#1')
+	store(w1,1)					:(opdone)
 
 *	*   2.4	 DCA   _opn_
 
 *	Decrement address in _opn_ equivalent to SUB _opn_,*unity
 
-g_dca	genop('sub',getarg(arg1),'cfp_b')		:(opdone)
+g_dca
+
+	w1 = fetch(1)
+	genop('sub',w1,'#1')
+	store(w1,1)					:(opdone)
 
 *	*   2.5	 BEQ   _opn,opv,plbl_
 
@@ -2018,10 +1951,9 @@ g_dca	genop('sub',getarg(arg1),'cfp_b')		:(opdone)
 
 *	Equivalent to BGT or BGE
 
-*	The above instructions compare two address values as unsigned integer
-*	values.  The BLO and BHI instructions are used in cases where the equal
-*	condition either does not occur or can result either in a branch or
-*	no branch.
+*	The above instructions compare two address values as unsigned integer values.
+*	 The BLO and BHI instructions are used in cases where the equal condition either 
+*	does not occur or can result either in a branch or no branch.
 
 *	This avoids inefficient translations in some implementations.
 
@@ -2034,14 +1966,13 @@ g_ble
 g_blo
 g_bhi
 
-*	these operators all have two operands, memmem may apply.  issue target
-*	opcode by table lookup.
+*	these operators all have two operands.  issue target opcode by table lookup.
 
-	memmem()
-	t1 = branchtab[incode]
-	genop('cmp',getarg(arg1),getarg(arg2))
-	genop(branchtab[incode],getarg(arg3))
-.							:(opdone)
+	w1 = fetch(1)
+	w2 = fetch(2)
+	genop('cmp',w1,w2)
+	genop('b' branchtab(op), getarg(arg3))
+	genop(branchtab[incode],getarg(arg3))			:(opdone)
 
 *	*   2.13 BNZ   _opn,plbl_
 
@@ -2053,21 +1984,21 @@ g_bhi
 
 g_bnz
 
-	isreg(arg1)					:s(g_bnz1)
+	isreg(arg1)						:s(g_bnz1)
 	genop('cmp', getarg(arg1) ,'0')
 	genop('jnz',getarg(arg2))
-							:(opdone)
+								:(opdone)
 g_bnz1
 
 	genop('or',getarg(arg1),getarg(arg1))
 	genop('jnz',getarg(arg2))
-							:(opdone)
+								:(opdone)
 
-g_bze	isreg(arg1)					:s(g_bze1)
+g_bze	isreg(arg1)						:s(g_bze1)
 
 	genop('cmp', getarg(arg1)	 ,'0')
 	genop('jz',getarg(arg2))
-							:(opdone)
+								:(opdone)
 g_bze1
 
 	t1 = getarg(arg1)
@@ -2162,21 +2093,12 @@ g_aov
 *	The instructions currently implemented. See comment for ENT instruction above
 
 g_bev
+
 	error('BEV not supported)			:(opnext)
 
-	t1 = getarg(arg1)
-	t1 = eq(type(arg1),8) reglow(t1)
-	genop('test',t1,'1')
-	genop('je',getarg(arg2))
-							:(opdone)
 g_bod
 
 	error('BOD not supported)			:(opnext)
-
-	t1 = getarg(arg1)
-	t1 = eq(type(arg1),8) reglow(t1)
-	genop('test',t1,'1')
-	genop('jne',getarg(arg2))			:(opdone)
 
 *	 #### 3- Operations on the Code Pointer Register
 
@@ -2231,16 +2153,13 @@ g_icp	genop(op_,getarg(arg1))				:(opdone)
 
 g_ldi
 
-	genop('mov',ia,getarg(arg1))			:(opdone)
-
 *	*   4.2	 ADI   _ops_
 
 *	ADD  _ops_ to integer accumulator
 
 g_adi
 
-	
-	genop('add',ia,getarg(arg1))		  	:(opdone)
+	w1 = fetch(1)					:(opint)
 
 *	*   4.3	 MLI   _ops_ 
 
@@ -2248,15 +2167,16 @@ g_adi
 
 g_mli
 
-	genop('imul',ia,getarg(arg1))		      :(opdone)
+	w1 = fetch(1)					:(opint)
 
 *	*   4.4	 SBI   _ops_
 
 *	Subtract  _ops_ from int accumulator
 
+	w1 = fetch(1)					:(opint)
 g_sbi
 
-	genop('sub',ia,getarg(arg1))		      :(opdone)
+	w1 = fetch(1)					:(opint)
 
 *	*   4.5	 DVI   _ops_
 
@@ -2267,35 +2187,33 @@ g_sbi
 
 g_dvi
 
-
-	genop('mov',w0,ia)
-	genop('cdq')
-	genop('idiv',getarg(arg1))
-	genop('mov',ia,w0)
-							:(opdone)
+	w1 = fetch(1)					:(opint)
 
 *	*   4.6	 RMI   _ops_
 
 *	Set integer accumulator to `mod(intacc,_ops_)`
 
 g_rmi
-	genop('mov',w0,ia)
-	genop('cdq')
-	genop('idiv',getarg(arg1))
-	genop('mov',ia,wc)
-							:(opdone)
+
+	w1 = fetch(1)					:(opint)
+
 *	*   4.7	 STI   _ops_
 
 *	Store integer accumulator at  _ops_
+	
+	store(ia,arg1)					:(opdone)
 
 *	*   4.8	 NGI
 
 *	Negate the value in the integer accumulator (change its sign)
 
+	w1 = fetch(1)					:(opint)
+
 *	*   4.9	 INO  _plbl_
 
 *	Jump to _plbl_ if no integer overflow
 
+	genop('??')					:(opdone)
 *	*   4.10 IOV  _plbl_
 
 *	Jump to _plbl_ if integer overflow
@@ -2305,7 +2223,16 @@ g_rmi
 
 *	IOV and INO may not have labels.
 
+	genop('??')					:(opdone)
+
+opint
+
+*	perform operation of integer accumulator with operand in _w1_.
+
+	genop(incode,w1)				:(opdone)
+
 *	*   4.11 IEQ  _plbl_
+
 
 *	Jump to _plbl_ if (IA) eq 0
 
@@ -2582,20 +2509,20 @@ g_lch
 *	see if predecrement needed.
 	leq('-',substr(t2,1,1))				:f(g_lcg_1)
 	t2 break('(') len(1) len(2) . t3
-	(eq(cfp_b,cfp_c) genop('dec',register(t3)), genop('sub',register(t3),'cfp_b'))
+	(eq(cfp_b,cfp_c) genop('dec',t3), genop('sub',t3,'cfp_b'))
 
 g_lcg_1
 
 	t2 break('(') len(1) len(2) . t3
 	eq(cfp_b,cfp_c) genop('mov',w0,'0')
-	eq(cfp_b,cfp_c) genop('mov','al','m_char [' register(t3) ']')
+	eq(cfp_b,cfp_c) genop('mov','al','m_char [' t3 ']')
 	eq(cfp_b,cfp_c) genop('mov',t1,w0)
 
-	ne(cfp_b,cfp_c) genop('mov',t1,'m_char [' register(t3) ']')
+	ne(cfp_b,cfp_c) genop('mov',t1,'m_char [' t3 ']')
 
 *	see if postincrement needed.
 	t2 rtab(1) '+'					:f(g_lcg_2)
-	(eq(cfp_b,cfp_c) genop('inc',register(t3)), genop('add',register(t3),'cfp_b'))
+	(eq(cfp_b,cfp_c) genop('inc',t3), genop('add',t3,'cfp_b'))
 
 g_lcg_2							:(opdone)
 
@@ -2722,8 +2649,8 @@ g_cmc
 g_trc
 
 	genop('xchg',xl,xr)
-	eq(cfp_b,cfp_c) genopl((t1 = genlab()) '	:','movzx',w0,'m_char [' register(xr) ']')
-	ne(cfp_b,cfp_c) genopl((t1 = genlab()) '	:','mov',w0,'m_char [' register(xr) ']')
+	eq(cfp_b,cfp_c) genopl((t1 = genlab()) '	:','movzx',w0,'m_char [' xr ']')
+	ne(cfp_b,cfp_c) genopl((t1 = genlab()) '	:','mov',w0,'m_char [' xr ']')
 	ne(cfp_b,cfp_c) genop('sal', w0, 'log_cfp_b');* convert char value to byte offset
 	eq(cfp_b,cfp_c) genop('mov','al', '[' xl '+' w0 ']')
 	ne(cfp_b,cfp_c) genop('mov',w0,'[' xl '+' w0 ']')
@@ -2741,20 +2668,8 @@ g_trc
 g_flc
 
 	output = 'flc  not supported ' (end)
-	t1 = (eq(cfp_b,cfp_c) reglow(getarg(arg1)), getarg(arg1))
-	t2 = genlab()
-
-*	z_suspend = 1
-
-	genop('cmp',t1,"'A'")
-	genop('jb', t2 )
-	genop('cmp',t1,"'Z'")
-	genop('ja', t2)
-	genop('add',t1,'32')
-	genopl(t2 '					:')
-
-*	z_suspend = 0
 							:(opdone)
+
 *	#### 7- Operations on Bit String Values
 
 *	*   7.1	 ANB   _w,opw_
@@ -2998,8 +2913,8 @@ g_cvm	t1 = getarg(arg1)
 	genop('sti_',w0)
 	genop('imul',w0,'10')
 	genop('jo',t1)
-	genop('sub',register(wb),'ch_d0')
-	genop('sub',w0,register(wb))
+	genop('sub',wb,'ch_d0')
+	genop('sub',w0,wb)
 	genop('ldi_',w0)
 	genop('jo',t1)
 							:(opdone)
@@ -3052,15 +2967,12 @@ g_cvd
 
 g_mvc
 
-*	     use word move if character size is word size
+*	     use word move if character size is word size.
 *	     if charsize is word size, convert character count to byte count for word move
 
-	ne(cfp_b,cfp_c) genop('shl', wa, 'log_cfp_b')
 	ne(cfp_b,cfp_c)					:s(g_mvw)
-	t1 = genlab()
 	z_suspend = 1
-	genop('rep')
-	genop('movs_b')
+	genop('call',incode)
 	z_suspend = 0
 							:(opdone)
 
@@ -3091,8 +3003,7 @@ g_mvc
 g_mvw
 
 	z_suspend = 1
-	genop('shr',wa,'log_cfp_b')
-	genop('rep','movs_w')
+	genop('call',incode)
 	z_suspend = 0
 							:(opdone)
 
@@ -3116,19 +3027,7 @@ g_mvw
 
 g_mwb
 
-	genop('shr',wa,'log_cfp_b')
-	genop('std')
-	genop('lea',xl,'[xl-cfp_b]')
-	genop('lea',xr,'[xr-cfp_b]')
-	genrep('movs_w')
-	genop('cld')					:(opdone)
-
-	genop('std')
-	genop('shr',wa,'log_cfp_b')
-	genop('rep')
-	genop('movs_w')
-	genop('ctd')
-							:(opdone)
+	genop('call',incode)					:(opdone)
 
 *	*   9.4	 MCB
 
@@ -3157,19 +3056,8 @@ g_mcb
 
 *	     use word move if character size is word size
 
-	ne(cfp_b,cfp_c) genop('shl', wa, 'log_cfp_b')
 	ne(cfp_b,cfp_c)					:s(g_mwb)
-	genop('std')
-	genop('dec',xl)
-	genop('dec',xr)
-	genrep('movs_b')
-	genop('cld')
-							:(opdone)
-	genop('std')
-	genop('rep')
-	genop('movs_b')
-	genop('cld')
-							:(opdone)
+	genop('call',incode)				:(opdone)
 
 *	#### 10- Operations Connected with the Stack
 
@@ -3213,8 +3101,7 @@ g_chk
 g_dac
 
 	t1 = type(arg1)
-	t2 = "" ;*(le(t1,2) "", le(t1,4) "d_offset_(", le(t1,6) "d_offset_(", "")
-	genopl(thislabel,'d_word',t2 text(arg1))
+	genopl(thislabel,'.word',text(arg1))
 							:(decend)
 
 *	*   11.2 DIC  _integer_
@@ -3225,7 +3112,7 @@ g_dac
 
 g_dic
 
-	genopl(thislabel,'d_word',text(arg1))
+	genopl(thislabel,'.int',text(arg1))
 							:(decend)
 *	*   11.3 DRC  _real_
 
@@ -3239,7 +3126,7 @@ g_drc
 	genop('align',8)
 	t1 = text(arg1)
 	t1 ? fence "+" = ""
-	genop('d_real',t1)
+	genopl(thislabel,'.float',t1)
 
 *	note that want to attach label to last instruction
 
@@ -3284,7 +3171,7 @@ g_dtc.1
 	le(dtc_i = dtc_i + 1, size(t2))			:s(g_dtc.1)
 
 	t4 = ne(t3) t4 dupl(',0',cfp_c - t3)
-	genopl(thislabel,'d_char',t4)
+	genopl(thislabel,'.ascii',t4)
 							:(opdone)
 *	*   11.5 DBC  val
 
@@ -3295,7 +3182,7 @@ g_dtc.1
 
 g_dbc
 
-	genopl(thislabel,'d_word',getarg(arg1))		:(opdone)
+	genopl(thislabel,'.word',getarg(arg1))		:(opdone)
 
 decend
 
@@ -3320,8 +3207,8 @@ decend
 
 g_equ
 
-	genopl(thislabel,'equ',text(arg1))
-							:(opdone)
+	genop('.set',thislabel ',' , text(arg1))	:(opdone)
+
 *	*   12.2 *exp
 
 *	Define external procedure
@@ -3337,8 +3224,8 @@ g_equ
 g_exp
 
 	ppm_cases[thislabel] = text(arg1)
-	genop('extern',thislabel)
-	thislabel =						:(opdone)
+	genop('.extern',thislabel)
+	thislabel =					:(opdone)
 
 *	*   12.3 INP  _ptyp_,int
 
@@ -3353,38 +3240,36 @@ g_exp
 g_inp
 
 	ppm_cases[thislabel] = text(arg2)
-	prc.count1 = ident(text(arg1),'n') prc.count1 + 1	:(opnext)
+	prc.count1 = ident(text(arg1),'n') prc.count1 + 1 :(opnext)
 
 *	*   12.4 INR
 
 *	Define internal routine
 
-*	INR defines the symbol appearing in the label field to be the name of 
-*	an internal routine.
+*	INR defines the symbol appearing in the label field to be the name of an internal routine.
 
 *	The label may be referenced in any type of branch order and it must 
 *	appear labelling a RTN instruction in the program section.
 
 
-g_inr	genop('')						:(opdone)
+g_inr	genop('')					:(opdone)
 
 *	### 13 - Assembly Listing Layout Instruction
 
-*	Who uses listings these days? Who even knows what a listing is?
-*	Those were the days ...
+*	Who uses listings these days? Who even knows what a listing is? Those were the days ...
 
 *	*   13.1 EJC
 
 *	Eject to next page
 
 
-g_ejc								:(opnext)
+g_ejc							:(opnext)
+
 *	*   13.2 TTL  text
 
 *	Set new assembly title
 
-*	TTL implies an immediate eject of the assembly listing to print 
-*	the new title.
+*	TTL implies an immediate eject of the assembly listing to print the new title.
 
 *	The use of TTL and EJC cards is such that the program will list neatly the 
 *	printer prints as many as 58 lines per page. In the event that the printer
@@ -3392,6 +3277,6 @@ g_ejc								:(opnext)
 *	 as actual generated code), then the format may be upset.
 
 
-g_ttl								:(opnext)
+g_ttl							:(opnext)
 
 end
