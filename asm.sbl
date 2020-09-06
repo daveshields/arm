@@ -50,13 +50,11 @@
 *	file if possible.
 
 *	in addition to the normal minimal register complement, one scratch work
-*	register, w0 is defined. see the register map below for 
-*	specific allocations.
+*	register, w0 is defined. see the register map below for specific allocations.
 
-*	this program is based in part on earlier translators for the it is based
-*	in part on earlier translators for the dec vax (vms and un*x)
-*	written by steve duff and robert goldberg, and the pc-spitbol 
-*	translator written by david shields.
+*	this program is based in part on earlier translators for the it is based in part on
+*	earlier translators for the dec vax (vms and un*x) written by steve duff and
+*	robert goldberg, and the pc-spitbol translator written by david shields.
 
 *  to run under spitbol:
 
@@ -80,17 +78,15 @@
 -stitl crack(line)
 	define('crack(line)operands,operand,char')	:(crack.end)
 
-*	crack is called to create a stmt plex containing the various parts of
-*	the minimal source statement in line.  for conditional assembly ops,
-*	the opcode is the op, and op1 is the symbol. note that dtc is 
-*	handled as a special case to assure that the decomposition is correct.
+*	crack is called to create a stmt plex containing the various parts of the minimal source
+*	statement in line.  for conditional assembly ops, the opcode is the op, and op1 is the symbol.
+*	note that dtc is handled as a special case to assure that the decomposition is correct.
 
 *	crack prints an error and fails if a syntax error occurs.
 
 
 
-*	crack parses stmt into a stmt data plex and returns it.
-*	it fails if there is a syntax error.
+*	crack parses stmt into a stmt data plex and returns it. it fails if there is a syntax error.
 
 crack
 
@@ -296,9 +292,11 @@ error_end
 
 fetch
 
-	iarg = eq(argnum,1) arg1
-	iarg = eq(argnum,2) arg2
-	iarg = eq(argnum,3) arg3
+	fetch = r1
+
+*	iarg = eq(argnum,1) arg1
+*	iarg = eq(argnum,2) arg2
+*	iarg = eq(argnum,3) arg3
 
 * output = 'fetch text <' text(iarg) '>  type <' type(iarg) '>'
 	eq(type(iarg),3)					:s(fetch_ok)
@@ -319,15 +317,9 @@ fetch_4
 
 *  wlbl, clbl
 
-   fetch = tmem '[' text(iarg) ']'				:(return)
-
-fetch_5
-fetch_6
-
-*  elbl, plbl
-
-   fetch = text(iarg)						:(return)
-
+	genop('ldr',r1,'=' text(arg1))
+	genop('ldr','[' r1 ']')
+   								:(return)
 fetch_7
 fetch_8
 
@@ -339,36 +331,23 @@ fetch_9
 
 *  (x), register indirect
 
-	genop('ldr',w0,'[' text(iarg) ']')
-	fetch = w0						:(return)
+	genop('ldr',r1, '[' text(iarg) ']')
+								:(return)
 
 fetch_10
 
 *  (x)+, register indirect, post increment
 
-*	generate increment of the register, load from the register, 
-*	then modify the corresponding argument to be _(xl)_.
+	genop('ldr',r1, '[' text(iarg), 'asl 2'])
 
-	genaop(tstmt(,'add', substr(text(iarg),2,2), '$' cfp_b))
-	genbop('ldr',w0, '[' substr(text(iarg),2,2) ']')
-
-*	strip off the plus sign.
-
-	iarg = minarg(type(iarg), substr(1,4,iarg))		:(fetch_done)
 
 fetch_11
 
 *	-(x), register indirect, pre decrement
 
-*	generate  decrement of  register, load from the register, then modify the corresponding 
-*	argument to be _(xl)_.
+	genop('ldr',r1, '[' text(iarg), 'arl 2'])
 
-	genaop(tstmt(,'sub', substr(text(iarg),3,2), '$' cfp_b))
-	genbop('ldr',w0, '[' substr(text(iarg),3,2) ']')
-
-*	strip off the negative  sign.
-
-	iarg = minarg(type(iarg), substr(2,4,iarg))		:(fetch_done)
+								:(fetch_done)
 
 fetch_12
 fetch_13
@@ -390,11 +369,12 @@ fetch_15
 
 fetch_done
 
+								:(return)
 *	adjust appropriate argument register.
 
 	arg1 = eq(argnum,1) iarg
 	arg2 = eq(argnum,2) iarg
-	arg3 = eq(argnum,3) iarg				:(return)
+	arg3 = eq(argnum,3) iarg			:(return)
 
 fetch_end
 -stitl genaop(stmt)
@@ -1597,20 +1577,6 @@ g_sss
 g_rtn
 
 	genop()						:(opdone)
-
-
-g_ieq	jop = 'je'					:(op.cmp)
-g_ige	jop = 'jge'					:(op.cmp)
-g_igt	jop = 'jg'					:(op.cmp)
-g_ile	jop = 'jle'					:(op.cmp)
-g_ilt	jop = 'jl'					:(op.cmp)
-g_ine	jop = 'jne'					:(op.cmp)
-op.cmp
-
-	genop('sti_',w0)
-	genop('or',w0,w0)
-	genop(jop,getarg(arg1))				:(opdone)
-
 *	real operations
 
 *	lch requires separate cases for each first operand possibility.
@@ -2153,13 +2119,16 @@ g_icp	genop(op_,getarg(arg1))				:(opdone)
 
 g_ldi
 
+	wc = fetch(1)					:(opdone)
+
 *	*   4.2	 ADI   _ops_
 
 *	ADD  _ops_ to integer accumulator
 
 g_adi
 
-	w1 = fetch(1)					:(opint)
+	w1 = fetch(1)
+	genop('adds',wc,w1)				:(opdone)
 
 *	*   4.3	 MLI   _ops_ 
 
@@ -2167,27 +2136,34 @@ g_adi
 
 g_mli
 
-	w1 = fetch(1)					:(opint)
+	w1 = fetch(1)
+	genop('muls',wc,wc,w1)				:(opdone)
 
 *	*   4.4	 SBI   _ops_
 
 *	Subtract  _ops_ from int accumulator
 
-	w1 = fetch(1)					:(opint)
 g_sbi
 
-	w1 = fetch(1)					:(opint)
+	w1 = fetch(1)
+	genop('subs',wc,w1)				:(opdone)
 
 *	*   4.5	 DVI   _ops_
 
 *	Divide integer accumulator by  _ops_
 
-*	In ARM V7, signed and unsigned division are avilable in the THUMB instruction set, with
-*	the instructions UDIV and SDIV.
 
 g_dvi
 
-	w1 = fetch(1)					:(opint)
+*	In ARM V7, signed and unsigned division are avilable in the THUMB instruction set, with
+*	the instructions UDIV and SDIV.
+
+	w1 = fetch(1)
+
+*	need to check if divisor is zero, so can catch via software.
+
+	genop('sdivs',wc,r1)
+	error ('idiv todo')				:(opdone)
 
 *	*   4.6	 RMI   _ops_
 
@@ -2195,25 +2171,30 @@ g_dvi
 
 g_rmi
 
-	w1 = fetch(1)					:(opint)
+	w1 = fetch(1)
+	error ('rmi todo')				:(opdone)
 
 *	*   4.7	 STI   _ops_
 
 *	Store integer accumulator at  _ops_
 	
-	store(ia,arg1)					:(opdone)
+	store(ia,fetch(1))				:(opdone)
 
 *	*   4.8	 NGI
 
 *	Negate the value in the integer accumulator (change its sign)
 
-	w1 = fetch(1)					:(opint)
+	wc = fetch(1)
+	
+*	Use NEG pseudo-instruction
+
+	genop('neg',wc,wc)				:(opdone)
 
 *	*   4.9	 INO  _plbl_
 
 *	Jump to _plbl_ if no integer overflow
 
-	genop('??')					:(opdone)
+	error('ino todo')				:(opdone)
 *	*   4.10 IOV  _plbl_
 
 *	Jump to _plbl_ if integer overflow
@@ -2223,24 +2204,23 @@ g_rmi
 
 *	IOV and INO may not have labels.
 
-	genop('??')					:(opdone)
-
-opint
-
-*	perform operation of integer accumulator with operand in _w1_.
-
-	genop(incode,w1)				:(opdone)
+	error('ino todo')				:(opdone)
 
 *	*   4.11 IEQ  _plbl_
 
+g_ieq	opcode = 'beq'					:(g_ia)
 
 *	Jump to _plbl_ if (IA) eq 0
 
 *	*   4.12 IGE  _plbl_
 
+g_ige	opcode = 'bge'					:(g_ia)
+
 *	Jump to _plbl_ if (IA) ge 0
 
 *	*   4.13 IGT  _plbl_
+
+g_igt	opcode = 'bgt'					:(g_ia)
 
 *	Jump to _plbl_ if (IA) gt 0
 
@@ -2248,7 +2228,11 @@ opint
 
 *	Jump to _plbl_ if (IA) le 0
 
+g_ile	opcode = 'ble'					:(g_ia)
+
 *	*   4.15 ILT  _plbl_
+
+g_ilt	opcode = 'blt'					:(g_ia)
 
 *	Jump to _plbl_ if (IA) lt 0
 
@@ -2256,7 +2240,14 @@ opint
 
 *	Jump to _plbl_ if (IA) ne 0
 
+g_ine	opcode = 'bne'					:(g_ia)
+
 *	The above conditional jump instructions do not change the contents of the accumulator.
+
+g_ia
+
+	genop('cmp',wc,'#0')
+	genop(opcode,getarg(1))				:(opdone)
 
 g_sti
 

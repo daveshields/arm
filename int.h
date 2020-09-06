@@ -18,60 +18,31 @@
 #     along with macro spitbol.	 if not, see <http://www.gnu.org/licenses/>.
 
 	.code	32
-#	.intel_syntax
 
 #	results are usually returned in r0; real results in r0:r1
 
-#	w0 -> r0  wa -> r2  wb -> r3  wc -> r4
-#	xl -> r5 xr -> r6 sp => r13
-
-#	r11 is grame pointer; 
+#	r11 is frame pointer; 
 #	r12 is procedure entry temporary workspace
 #	r14 is link register, return address at function exit
 
-#	%define m_char	byte	@ reference to byte in memory
-#	%define d_char	db	@ define value of byte
 
-#	%define m_word	qword
-#	%define d_word	dq
-
-#	%define m_real	qword	@ reference to floating point value in memory
-#	%define d_real	dq	@ define value for floating point
-
-# use  name .req reg   @ create alias for register 'reg'  with name 'name'
-
-	w0	.req	r0
-	w1	.req	r1
-	w2	.req	r2
+	w0	.req	r0	@ work register, does not persist across inctructions
+	w1	.req	r1	@ used to fetch first operand
+	w2	.req	r2	@ used to fetch second operand
 	wa	.req	r3
 	wb	.req	r4
 	wc	.req	r5
+	ia	.req	r5	@ is overlaps wc
 	xl	.req	r6
 	xr	.req	r7
 	cp	.req	r8
 	xs	.req	sp
 
-#	%define log_cfp_b 2
-#	%define log_cfp_c 2
+	.set	cfp_c_val,4
+	.set	log_cfp_b,2
+	.set	log_cfp_c,2
 
-#	%define d_real	dq
-#	%define cfp_c_val	8
-#	%define log_cfp_c 2
-#	%define cfp_m_	4294967295:1
+	.set	cfp_m_,4294967295:1
 	
-#	%define	cfp_n_	32
+	.set	cfp_n_,32
 
-#	%define	lods_w	lodsq
-#	%define	lods_b	lodsb
-#	%define movs_b	movsb
-#	%define movs_w	movsq
-#	%define stos_b	stosb
-#	%define	stos_w	stosq
-#	%define	cmps_b	cmpsb
-
-#	%define	cdq	cqo	@ sign extend (64 bits)
-
-#	flags
-#	%define	flag_of	0x80
-#	%define	flag_cf	0x01
-#	%define	flag_ca	0x40
