@@ -317,8 +317,8 @@ fetch_4
 
 *  wlbl, clbl
 
-	genop('ldr',r1,'=' text(arg1))
-	genop('ldr','[' r1 ']')
+	genop('ldr',w1,'=' text(arg1))
+	genop('ldr','[' w1 ']')
    								:(return)
 fetch_7
 fetch_8
@@ -331,21 +331,21 @@ fetch_9
 
 *  (x), register indirect
 
-	genop('ldr',r1, '[' text(iarg) ']')
+	genop('ldr',w1, '[' text(iarg) ']')
 								:(return)
 
 fetch_10
 
 *  (x)+, register indirect, post increment
 
-	genop('ldr',r1, '[' text(iarg), 'asl 2'])
+	genop('ldr',w1, '[' text(iarg), 'asl 2'])
 
 
 fetch_11
 
 *	-(x), register indirect, pre decrement
 
-	genop('ldr',r1, '[' text(iarg), 'arl 2'])
+	genop('ldr',w1, '[' text(iarg), 'arl 2'])
 
 								:(fetch_done)
 
@@ -783,7 +783,22 @@ skip_init	s break(':') . on ':' rem . off		:f(return)
 	skip_off[off] = 1				:(return)
 
 skip_init_end
+-sttl	symbol	return value of symbol defined in definition section
+	define('const(iarg)val')			:(symbol_end)
 
+*	If the argument is a symbol defined in the definition section then
+*	return the symbol expressed as an immediate constante.
+*	If the argument is an integer, return the integer as an immediate constant.
+
+symbol
+
+	symbol = convert(iarg,'integer) '#' convert(iarg,'integer') :s(return)
+
+	ne(type(iarg),2) error('request for undefined symbol: ' text(iarg))	:(return)
+	symbol = '#' text(iarg)				:(return)
+
+symbol_end
+-sttl	init - initialize global constants and variables
 	define('init()')				:(init_end)
 
 init
@@ -791,7 +806,6 @@ init
 *	revision history:
 
 	version = 'v1.12'
-	rcode = '_rc_'
 
 *	keyword initialization
 
@@ -844,6 +858,15 @@ init
 	xl = 'xl'; xr = 'wr'; xt = xl
 	ia = wc
 	cp = 'cp' 
+
+*	pc is the program counter. We use PC when explicitly maniupulating the stack.
+
+	pc = 'pc'
+	PC = pc
+
+*	rcode is used to hold return code value from subroutine call.
+
+	rcode = 'w0'
 
 * symbolic target assignments
 
@@ -997,21 +1020,7 @@ config_done
 
 	comment.delim = ';'
 
-*	branchtab maps minimal opcodes 'beq', etc to desired
-*	target instruction
-
-	branchtab = table(10)
-	branchtab['beq'] = 'je'
-	branchtab['bne'] = 'jne'
-	branchtab['bgt'] = 'ja'
-	branchtab['bge'] = 'jae'
-	branchtab['ble'] = 'jbe'
-	branchtab['blt'] = 'jb'
-	branchtab['blo'] = 'jb'
-	branchtab['bhi'] = 'ja'
-
-*	optim.tab flags opcodes capable of participating in or optimization
-*	in outstmt routine.
+*	optim.tab flags opcodes capable of participating in or optimization in outstmt routine.
 
 	optim.tab = table(10)
 
@@ -1216,8 +1225,8 @@ ds.typerr
 
 g_mov
 
-	r_src = fetch(2)
-	store(r_src,1)
+	r1 = fetch(1)
+	store(w1,arg2)					:(opdone)
 
 *	* 1.2  BRN  _plbl_    unconditional branch
 
@@ -1226,7 +1235,7 @@ g_mov
 
 g_brn
 
-	genop('jmp',getarg(arg1))				:(opdone)
+	genop('adr',PC,text(arg1))			:(opdone)
 
 *	* 1.3  BSW  _x,val,plbl_    branch on switch value
 
@@ -1250,22 +1259,38 @@ g_brn
 
 g_bsw
 
-	t1 = getarg(arg1)
+	r1 = fetch(1)
+	genop('mov',w2,const(arg2))
 	t2 = genlab()
 	z_suspend = 1
 	ident(text(arg3))				:s(g_bsw1)
-	genop('cmp',t1,getarg(arg2))
-	genop('jge',getarg(arg3))
+
+*	Here if _plbl_, so generate branch to it if out or range
+	genop('cmp',w1,const(arg2))
+	genop('jge',text(arg3))
 
 *  here after default case.
 
 g_bsw1
 
-	genop('jmp', 'm_word [' t2 '+' t1 '*cfp_b]')
-	genop('segment .rodata')
-	genopl(t2 ':')
+*	Use TBH instruction:
+*		tbh PC, w1, lsl #1
+*	where
+*		Rn is the base register for table. Use PC if table follows this instruction.
+*
+*		r1 is integer index. The offset into the table is this value, shifted to
+*		get halfword offset.
+*		
+*		The first case follows this instruction.
+
+	genop('tbh','[' PC ',' r1 ','  const(1) ']')
+
+*	tbh_label is value of PC for first entry in table
+
+	tbh_label = genlab()
 	z_suspend = 0
 							:(opdone)
+
 *	* 1.4  IFF  _val,plbl_	      provide branch for switch
 
 *	```
@@ -1274,20 +1299,18 @@ g_bsw1
 *		    ...
 *	```
 
+*	Note that the lowest IFF entry value for _val_ is always zero.
+*	The IFF statements have been sorted into the proper order by the lexical scanner.
+
 g_iff
 
-	genop('d_word',getarg(arg2))			:(opdone)
+	genop('.int', '((' text(arg2) ' - ' tbh_label ')/2)')	:(opdone)
+
 
 *	* 1.5  ESW	end of branch switch table
+
 g_esw
-
-*	Use TBH instruction:
-*		tbh Rn, Rm, LSL #1
-*	where
-*		Rn is the base register for table. Can use PC if table follows this instruction.
-*		Rm is integer index. The offset into table is twice this value.
-
-	genop('segment .text')				:(opdone)
+							:(opdone)
 
 *	*   1.6	 ENT  _val_ define program entry point
 
@@ -1312,19 +1335,16 @@ g_ent
 *	Note that it may be possible to use the byte before program as ARM V7
 *	archiecture supports LDRD and STRB on bytes. Need to investigate,but
 *	for now am disabling these instructions.
-*	As a consequence operations BEV and BOD need not be implemented.
+
+*	As a consequence operations BEV and BOD need not be implemented, as
+*	entry point is implemented as full word.
 
 
 	t1 = text(arg1)
-	outfile = tab 'align' tab '2'
-	differ(t1)					:s(g_ent.1)
-	outfile = tab 'nop'
-							:(g_ent.2)
-g_ent.1
+	genop('.long',text(arg1))
 
-	outfile = tab 'db' tab	t1
+							:(opdone)
 
-g_ent.2
 
 	outlines = outlines + 2
 	genopl(thislabel)
@@ -1347,25 +1367,24 @@ g_ent.2
 
 g_bri
 
-	genop('jmp',getarg(arg1))				:(opdone)
+	r1 = fetch(1)
+	genop('mov',PC,r1)				:(opdone)
 
 *	*   1.8	 LEI  _x_	  load entry point identification
 
-*	_x_ contains the address of an entry point for which an identifying
-*	value was given on the the ENT line. LEI replaces the contents of
-*	_x_ by this value.
+*	_x_ contains the address of an entry point for which an identifying value was
+*	given on the the ENT line. LEI replaces the contents of _x_ by this value.
 
 g_lei
 
-	t1 = text(arg1)
-	genop('movzx',t1,'byte [' t1 '-1]' )		:(opdone)
+	r1 = fetch(arg1)
+	genop('ldr','[' r1 ', ' const(4) ']')		:(opdone)
 
 *	*   1.9	 JSR  _pnam_	  call procedure _pnam_
 
 g_jsr
 
-	jsr_proc = getarg(arg1)
-	genop('call',jsr_proc)
+	jsr_proc = text(arg1)
 
 *	get count of following ppm statements
 
@@ -1375,12 +1394,14 @@ g_jsr
 	jsr_calls = jsr_calls +	 1
 	jsr_label = 'call_' jsr_calls
 	jsr_label_norm = jsr_label
-	genop('dec','m_word [' rcode ']')
-	genop('js',jsr_label_norm)
+	genop('subs',rcode,rcode,const(1))
+	genop('stmfc,sp '!'_)
+	adr(w1,jsr_label)
+	genop('movs',PC,r1)
 	z_suspend = 0
 
 *	     generate branch around for ppms that will follow
-*	     take the branch if normal return (eax==0)
+*	     take the branch if normal return (r1==0)
 							:(opdone)
 
 *	*   1.10 PPM  _plbl_	  provide exit parameter
@@ -1391,34 +1412,31 @@ g_jsr
 *		    PPM	 _plbl_		...
 *	```
 
-*	JSR causes control to be passed to the named procedure. _pnam_ is the
-*	label on a PRC statement elsewhere in the program section (see prc)
-*	or has been defined using an *exp* instruction.
+*	JSR causes control to be passed to the named procedure. _pnam_ is the label on a PRC
+*	statement elsewhere in the program section (see prc) *	or has been defined using an *exp* instruction.
 
-*	The PPM exit parameters following the call give names of program
-*	locations (_plbl_-s) to which alternative EXI returns of the called
-*	procedure may pass control.
+*	The PPM exit parameters following the call give names of program locations (_plbl_-s) to
+*	which alternative EXI returns of the called procedure may pass control.
 
-*	They may optionally be replaced by error returns (see err). the
-*	number of exit parameters following a JSR must equal the int in the
-*	procedure definition.
+*	They may optionally be replaced by error returns (see err). the number of exit parameters
+*	following a JSR must equal the int in the procedure definition.
 
-*	The operand of PPM may be omitted if the corresponding EXI return
-*	is certain not to be taken.
+*	The operand of PPM may be omitted if the corresponding EXI return is certain not to be taken.
 
-g_ppm							:(g_err)
+g_ppm							
+
+*	PPM and ERR are handled the same way.
+
+							:(g_err)
 
 *	*   1.11 PRC  _ptyp,int_  define start of procedure
 
-*	The symbol appearing in the label field is defined to be the name
-*	of a procedure for use with JSR a procedure is a contiguous section of
-*	instructions to which control may be passed with a JSR instruction.
+*	The symbol appearing in the label field is defined to be the name of a procedure for use with JSR a
+*	procedure is a contiguous section of instructions to which control may be passed with a JSR instruction.
 
-*	This is the only way in which the instructions in a procedure may
-*	be executed.
+*	This is the only way in which the instructions in a procedure may be executed.
 
-*	It is not permitted to fall into a procedure.  All procedures should
-*	be named in section 0 INP statements.
+*	It is not permitted to fall into a procedure.  Procedures should be named in section 0 INP statements.
 
 *	_int_ is the number of exit parameters (PPM-s) to be used in JSR calls.
 
@@ -1430,7 +1448,6 @@ g_prc
 *	     t1 ? rtab(1) . t1 ':'
 *	     genop()
 *	     genop('.globl',t1)
-*	nop needed to get labels straight
 
 	prc.args = getarg(arg2)
 	ppm_cases[thislabel] = text(arg2)
@@ -1443,7 +1460,11 @@ g_prc.r							:(opdone)
 
 g_prc.n
 
+	error('TODO prc return')			:(opdone)
+
 *	store return address in reserved location
+
+	genop('ldmfd', sp '!')
 	prc.count = prc.count + 1
 	genop('pop', 'm_word [' prcent(prc.count) ']')	:(opdone)
 
@@ -1452,64 +1473,62 @@ g_prc.n
 
 *	The PPM and ERR parameters following a JSR are numbered starting from 1.
 
-*	EXI int causes control to be returned to the int-th such param.
-*	EXI 1 gives control to the _plbl_ of the first PPM after the JSR if
-*	 _int_ is omitted, control is passed back past the last exit parameter
-*	(or past the JSR if there are none).
+*	EXI int causes control to be returned to the int-th such param. EXI 1 gives control to the
+*	_plbl_ of the first PPM after the JSR if _int_ is omitted, control is passed back past the
+*	last exit parameter (or past the JSR if there are none).
 
-*	For _r and_ _e_ type procedures, the stack pointer XS must be set to
-*	its appropriate entry value before executing an EXI instruction.
+*	For _r and_ _e_ type procedures, the stack pointer XS must be set to its appropriate entry
+*	value before executing an EXI instruction.
 
-*	In this case, EXI removes return points from the stack if any are stored
-*	there so that the stack pointer is restored to its calling value.
+*	In this case, EXI removes return points from the stack if any are stored there so that the
+*	stack pointer is restored to its calling value.
 
 g_exi
 
-	t1 = getarg(arg1); t2 = prc.type; t3 = text(arg1)
+	error('TODO exi')				:(opdone)
+	t2 = prc.type; t3 = text(arg1)
 
 *	if type r or e, and no exit parameters, just return
 
-	differ(t2,'n') eq(prc.args)	genop('ret')	:s(opdone)
+	differ(t2,'n') eq(prc.args)	genop('ldmfd',sp '!') :s(opdone)
 	t3 = ident(t3) '0'
-	genop('mov','m_word [' rcode ']',+t3)
+	genop('adr','rcode
+	genop('mov',w0,const(+t3))
 	ident(t2,'n')					:s(g_exi.1)
-	genop('ret')					:(opdone)
+	genop('ldmfd', sp '!')				:(opdone)
 
 g_exi.1
 
+	error('error g_exi.1')				:(opdone)
 	genop('mov',w0, 'm_word ['  prcent(prc.count) ']' )
 	genop('jmp',w0)
 							:(opdone)
 
 *	*   1.13 ENP  define end of procedure body
 
-*	ENP delimits a procedure body and may not actually be executed,
-*	hence it must have no label.
+*	ENP delimits a procedure body and may not actually be executed, hence it must have no label.
 
 g_enp	genop()						:(opdone)
 
 *	*   1.14 ERR  _int,text_  provide error return
 
-*	ERR may replace an exit parameter (PPM) in any procedure call.
-*	the int argument is a unique error code in 0 to 899.
+*	ERR may replace an exit parameter (PPM) in any procedure call. The int argument is a unique
+*	error code in 0 to 899.
 
-*	The text supplied as the other operand is arbitrary text in the
-*	FORTRAN character set and may be used in constructing a file of
-*	error messages to be used by the error handling code.
+*	The text supplied as the other operand is arbitrary text in the FORTRAN character set and may
+*	be used in constructing a file of error messages to be used by the error handling code.
 
-*	In the event that an EXI attempts to return control via an exit
-*	parameter to an ERR control is instead passed to the first instruction
-*	in the error section (which follows the program section) with the
-*	error code in WA.
+*	In the event that an EXI attempts to return control via an exit parameter to an ERR control
+*	is instead passed to the first instruction in the error section (which follows the program
+*	section) with the error code in WA.
 
 g_err
 
-*	Here with return code in rcode. it is zero for normal return and
-*	positive for error return. decrement the value. if it is negative
-*	then this is normal return. otherwise, proceed decrementing _rcode_
-*	until it goes negative,and then take the appropriate branch.
+*	Here with return code in rcode. it is zero for normal return and positive for error return.
+*	Decrement the value. if it is negative then this is normal return. otherwise, proceed, decrementing
+*	_rcode_ until it goes negative,and then take the appropriate branch.
 
-	t1 = getarg(arg1)
+	t1 = text(arg1)
 
 *	branch to next case if rcode code still not negative.
 
@@ -1529,25 +1548,26 @@ g_ppm.loop.next
 g_ppm.loop
 
 	lab_next = genlab()
-	genop('dec','m_word [' rcode ']')
-	genop('jns',lab_next)
+	genop('subs',rcode,const(1))
+	genop('mov',PC,adr(lab_next))
 	ident(incode,'ppm')				:s(g_ppm.loop.ppm)
 
-*	here if error exit via exi. set rcode to exit code and jump to error
-*	handler with error code in rcode
+*	here if error exit via exi. set rcode to exit code and jump to handler with error code in rcode
 
 g_ppm.loop.err
 
-	genop('mov','m_word [' rcode ']', +t1)
-	genop('jmp','err_')
+	genop('mov',rcode, const('+' t1))
+	genop('adr', w1,'err_')
+	genop('mov',PC,r1)
 							:(g_ppm.loop.next)
 g_ppm.loop.ppm
 
-*	     check each ppm case and take branch if appropriate
+*	check each ppm case and take branch if appropriate
 
 	ident(text(arg1))				:s(g_ppm.2)
 	count.ppm = count.ppm + 1
-	genop('jmp',	getarg(arg1))
+	genop('adr',w1,text(arg1))
+	genop('mov',PC',r1)
 							:(g_ppm.loop.next)
 
 g_ppm.2
@@ -1567,9 +1587,12 @@ g_ppm.2
 
 g_erb
 	errfile =  text(arg1) ' ' text(arg2)
-*	     set rcode to error code and branch to error handler
-	genop('mov', 'm_word [' rcode ']',  +(text(arg1)))
-	genop('jmp','err_')
+
+*	set rcode to error code and branch to error handler
+
+	genop('mov',rcode,const(text(arg1)))
+	genop('mov',w1,adr('err_'))
+	genop('mov',PC',r1)
 							:(opdone)
 
 g_ssl
@@ -1577,11 +1600,10 @@ g_sss
 g_rtn
 
 	genop()						:(opdone)
+
 *	real operations
 
 *	lch requires separate cases for each first operand possibility.
-
-
 
 *	*   7.8	 LSX  _w,(x)_
 
@@ -1598,7 +1620,8 @@ g_lsx
 
 g_zzz
 
-	genop('zzz',getarg(arg1))			:(opdone)
+
+	genop('zzz',text(arg1))				:(opdone)
 
 
 *	*   8.7	 CTW  _w,val_
@@ -1614,17 +1637,20 @@ g_ctw
 
 *	assume cfp_c chars per word
 
+	r1 = fetch(1)
+	error('TODO ctw')				:(opdone)
 	t1 = getarg(arg1)
 	eq(cfp_b,cfp_c)					:s(g_ctw.1)
 
 *	here if one word per character, so just add character count
 
-	genop('add',t1,text(arg2))
+	genop('add',w1,text(arg2))
 							:(opdone)
 g_ctw.1
 
-	genop('add',t1,'(cfp_c-1)+cfp_c*' text(arg2))
-	genop('shr',t1,'log_cfp_c')
+	r1 = fetch(arg1)
+	genop('add',w1,const('(cfp_c - 1) + cfp_c * text(arg2)))
+	genop('lsr',w1,w1,const('log_cfp_c'))
 							:(opdone)
 g_sec
 
@@ -1636,72 +1662,73 @@ g_sec
 g_sec.1
 
 	genop('segment .text')
-	genop('.globl','sec01')
+	genop('global','sec01')
 	genopl('sec01' ':')				:(opdone)
 
 *	definitions section
 
 g_sec.2
 
-	genop('segment .rodata')
-	genop('.globl','sec02')
+	genop('global','sec02')
 	genopl('sec02' ':')				:(opdone)
 
 *  constants section
 
 g_sec.3
 
-	genop('segment .rodata')
-	genop('.globl','sec03')
+	genop('global','sec03')
 	genopl('sec03' ':')				:(opdone)
 
 *  working variables section
 
 g_sec.4
 
-	genop('.globl','esec03')
+	genop('global','esec03')
 	genopl('esec03' '				:')
-	genop('segment .rodata')
-	genop('.globl','sec04')
+	genop('global','sec04')
 	genopl('sec04' ':')				:(opdone)
 
-*	here at start of program section.  if any n type procedures,
-*	put out entry-word block declaration at end of working storage
+*	here at start of program section.  If any n type procedures, put out entry-word block
+*	declaration at end of working storage
 
 g_sec.5
 
-*	emit code to indicate in code section
-*	get direction set to up.
+	error('TODO g_sec.5')				:(opdone)
 
-	genop('.globl','esec04')
+*	emit code to indicate in code section.
+
+	genop('global','esec04')
 	genopl('esec04' '				:')
 
 *	      (gt(prc.count1) genopl('prc$' ':','times', prc.count1 ' dd 0'))
 
-	genop('prc_ : times ' prc.count1 ' dd 0')
-	genop('.globl','lowspmin')
-	genopl('lowspmin' ':','d_word','0')
-	genop('.globl','end_min_data')
+	genopl('prc_')
+	genop('.rept' tab prc_count1)
+	genop('.word' tab '0')
+	genop('endr')
 
+	genop('.global','lowspmin')
+	genopl('lowspmin,'dd', '.word 0')
+	genop('.global','end_min_data')
 	genopl('end_min_data' ':')
-	genop('segment .text')
-	genop('.globl','sec05')
+	genop('.global','sec05')
 	genopl('sec05' ':')				:(opdone)
 
 *	stack overflow section.	 output exi__n tail code
 
 g_sec.6
 
-	genop('.globl','sec06')
-	genopl('sec06'	'				:', 'nop')
+	genop('global','sec06')
+	genopl('sec06')
 							:(opdone)
 
 *	error section.	produce code to receive erb's
 
 g_sec.7
 
-	genop('.globl','sec07')
-	genopl('sec07:')
+	error('TODO g_sec..7')				:(opdone)
+	genop('global','sec07')
+	genopl('sec07' '				:')
 	flush()
 *	error section.	produce code to receive erb's
 
@@ -1710,6 +1737,7 @@ g_sec.7
 	n1 = max.err + 8
 	output = '  max.err ' max.err
 	genopl('err_ :','xchg',wa,'m_word [' rcode ']') :(opdone)
+
 
 
 opdone
@@ -1763,7 +1791,9 @@ g_end.2
 
 g_icv
 
-	genop('inc',getarg(arg1))			:(opdone)
+	r1 = fetch(1)
+	genop('add',
+	genop('inc',w1,const(1))			:(opdone)
 
 *	*   1.17 DCV   _opn_	  decrement value by one
 
@@ -1771,7 +1801,9 @@ g_icv
 
 g_dcv
 
-	genop('dec',getarg(arg1))			:(opdone)
+	error('TODO dcv')				:(opdone)
+	r1 = fetch(1)
+	genop('dec',w1,const(1))			:(opdone)
 
 *	*   1.18 ZER   _opn_
 
@@ -1779,15 +1811,15 @@ g_dcv
 
 g_zer
 
-	src_reg = fetch(arg1)
-	genop('xor,'src_reg,src_reg)
-	store(arg1,src_reg)
+	r1 = fetch(arg1)
+	genop('xor,w1,r1)
+	store(w1,arg1)
 							:(opdone)
 
 *	*   1.19 MNZ   _opn_ move
 
-*	Any non-zero collectable value may used, for which the opcodes
-*	_bnz_/_bze_ will branch/fail to branch.
+*	Any non-zero collectable value may used, for which the opcodes _bnz_/_bze_ will branch/fail
+*	to branch.
 
 
 g_mnz
@@ -1819,17 +1851,18 @@ g_mnz
 
 *	SSL and SSS are no-ops if no private link stack is not used.
 
+*	A private link stack is not used in the ARM implementation.
+
 *	*   1.22 RTN define start of routine
 
 
 *	However it is entered by any type of conditional or unconditional
 *	branch (not by JSR).
 
-*	On termination it passes control by a branch (often BRI through a code
-*	word) or even permits control to drop through to another routine.
+*	On termination it passes control by a branch (often BRI through a code word) or even permits
+*	control to drop through to another routine.
 
-*	No return link exists and the end of a routine is not marked by
-*	an explicit opcode (compare ENP).
+*	No return link exists and the end of a routine is not marked by an explicit opcode (compare ENP).
 
 *	All routines must be named in section 0 INR statements.	 
 
@@ -1838,26 +1871,25 @@ g_mnz
 
 *	*   2.1	 ADD   _opn,opv_
 
-*	Adds  _opv_ to the value in  _opn_ and stores the result in  _opn_. 
-*	Undefined if the result exceeds CFP$L .
+*	Adds  _opv_ to the value in  _opn_ and stores the result in  _opn_.  Undefined if the result
+*	exceeds CFP$L .
 
 g_add
 
-	w2 = fetch(2)
 	w1 = fetch(1)
+	w2 = fetch(2)
 	genop('add',w1,w1,w2)
 	store(w1, 1)					:(opdone)
 
 *	*   2.2	 SUB   _opn,opv_
 
-*	Subtracts _opv_ from _opn_, and stores the result in _opn_. Undefined
-*	if the result is negative.
+*	Subtracts _opv_ from _opn_, and stores the result in _opn_. Undefined if the result is negative.
 
 g_sub
 
 
-	w2 = fetch(2)
 	w1 = fetch(1)
+	w2 = fetch(2)
 	genop('sub',w1,w1,w2)
 	store(w1, 1)					:(opdone)
 
@@ -1870,7 +1902,7 @@ g_sub
 g_ica	
 
 	w1 = fetch(1)
-	genop('add',w1,'#1')
+	genop('add',w1,const('cfp_b'))
 	store(w1,1)					:(opdone)
 
 *	*   2.4	 DCA   _opn_
@@ -1880,65 +1912,74 @@ g_ica
 g_dca
 
 	w1 = fetch(1)
-	genop('sub',w1,'#1')
+	genop('sub',w1,const('cfp_b'))
 	store(w1,1)					:(opdone)
+
+
+*	The following instructions compare two address values as unsigned integer values.
+*	The BLO and BHI instructions are used in cases where the equal condition either does not occur
+*	or can result either in a branch or no branch.
+
+*	This avoids inefficient translations in some implementations.
 
 *	*   2.5	 BEQ   _opn,opv,plbl_
 
 *	Branch to _plbl_  _opn_ eq  _opv_
 
 
+	cond = 'eq'					:(g_bop)
+
 *	*   2.6	 BNE   _opn,opv,plbl_
 
 *	Branch to _plbl_  _opn_ ne  _opv_
+
+	cond = 'ne'					:(g_bop)
 
 *	*   2.7	 BGT   _opn,opv,plbl_
 
 *	Branch to _plbl_  _opn_ gt  _opv_
 
+	g_bop = 'gt'					:(g_bop)
+
 *	*   2.8	 BGE   _opn,opv,plbl_
 
+	g_bop = 'ge'					:(g_bop)
 
 *	Branch to _plbl_  _opn_ ge  _opv_
 
 *	*   2.9	 BLT   _opn,opv,plbl_
 
+	g_bop = 'lt'					:(g_bop)
+
 *	Branch to _plbl_  _opn_ lt  _opv_
 
 *	*   2.10 BLE   _opn,opv,plbl_
+
+	g_bop = 'le'					:(g_bop)
 
 *	Branch to _plbl_  _opn_ le  _opv_
 
 *	*   2.11 BLO   _opn,opv,plbl_
 
-*	Equivalent to BLT or ble
+*	Equivalent to BLT or BLE
+
+	g_bop = 'ls'					:(g_bop)
 
 *	*   2.12 BHI   _opn,opv,plbl_
 
 *	Equivalent to BGT or BGE
 
-*	The above instructions compare two address values as unsigned integer values.
-*	 The BLO and BHI instructions are used in cases where the equal condition either 
-*	does not occur or can result either in a branch or no branch.
+	g_bop = 'hi'					:(g_bop)
 
-*	This avoids inefficient translations in some implementations.
-
-g_beq
-g_bne
-g_bgt
-g_bge
-g_blt
-g_ble
-g_blo
-g_bhi
-
-*	these operators all have two operands.  issue target opcode by table lookup.
+g_bop
 
 	w1 = fetch(1)
 	w2 = fetch(2)
 	genop('cmp',w1,w2)
-	genop('b' branchtab(op), getarg(arg3))
-	genop(branchtab[incode],getarg(arg3))			:(opdone)
+	w0 = fetch(3)
+	genop('cmp',w1,w2)
+	genop('mov' g_bop,pc,w0)
+							:(opdone)
 
 *	*   2.13 BNZ   _opn,plbl_
 
@@ -1950,42 +1991,35 @@ g_bhi
 
 g_bnz
 
-	isreg(arg1)						:s(g_bnz1)
-	genop('cmp', getarg(arg1) ,'0')
-	genop('jnz',getarg(arg2))
-								:(opdone)
-g_bnz1
+	w1 = fetch(1)
+	genop('adr',text(arg3))
+	genop('cmp', w1,const(0))
+	w3 = fetch(1)
+	genop('movnz',pc, w3)				:(opdone)
 
-	genop('or',getarg(arg1),getarg(arg1))
-	genop('jnz',getarg(arg2))
-								:(opdone)
+g_bze	
 
-g_bze	isreg(arg1)						:s(g_bze1)
-
-	genop('cmp', getarg(arg1)	 ,'0')
-	genop('jz',getarg(arg2))
-								:(opdone)
-g_bze1
-
-	t1 = getarg(arg1)
-	genop('or',t1,t1)
-	genop('jz',getarg(arg2))				:(opdone)
+	w1 = fetch(1)
+	genop('adr',text(arg3))
+	genop('cmp', w1,const(0))
+	w3 = fetch(1)
+	genop('movze',pc, w3)				:(opdone)
 
 *	*   2.15 LCT  _w,opv_
 
 *	Load counter for BCT
 
-*	LCT loads a counter value for use with the BCT instruction. The value
-*	in _opv_ is the number of loop operations to be executed.
+*	LCT loads a counter value for use with the BCT instruction. The value in _opv_ is the number
+*	of loop operations to be executed.
 
-*	The value in _w_ after this operation is an undefined one word
-*	integer quantity.
+*	The value in _w_ after this operation is an undefined one word integer quantity.
 
 g_lct
 
+	error('TODO lct')				:(opdone)
 *	if operands differ must emit code
 
-	differ(text(arg1),text(arg2))		:s(g_lct.1)
+	differ(text(arg1),text(arg2))			:s(g_lct.1)
 
 *	here if operands same. emit no code if no label, else emit null
 
@@ -2000,8 +2034,8 @@ g_lct.1
 
 *	Branch and count
 
-*	BCT uses the counter value in w to branch the required number of times
-*	and then finally to fall through to the next instruction.
+*	BCT uses the counter value in w to branch the required number of times and then finally to fall
+*	through to the next instruction.
 
 *	BCT can only be used following an appropriate LCT instruction.
 
@@ -2009,6 +2043,7 @@ g_lct.1
 
 g_bct
 
+	error('TODO bct')				:(opdone)
 *	can issue loop if target register is cx.
 
 	t1 = getarg(arg1)
@@ -2036,6 +2071,7 @@ g_bct1
 
 g_aov
 
+	error('TODO aov')				:(opdone)
 	genop('add',getarg(arg2),getarg(arg1))
 	genop('jc',getarg(arg3))
 							:(opdone)
@@ -2056,7 +2092,8 @@ g_aov
 *	from block addresses they are forced to be odd (not a *	multiple of CFP$B ). 
 *	EV and BOD branch according as operand is even or odd, respectively.
 
-*	The instructions currently implemented. See comment for ENT instruction above
+*	The instructions are not currently required, and so are not implemented. 
+*	See comment for ENT instruction above
 
 g_bev
 
@@ -2081,14 +2118,18 @@ g_bod
 *	This instruction causes the code pointer register to be set from the
 *	value in _reg_ which is unchanged
 
-g_lcp	genop(op_,getarg(arg1))				:(opdone)
+g_lcp	
+	error('TODO lcp')				:(opdone)
+	genop(op_,getarg(arg1))				:(opdone)
 
 *	*   3.2	 SCP   _reg_
 
 *	Store code pointer register this instruction loads the current value in the code pointer 
 *	register into reg_ (CP ) is unchanged.
 
-g_scp	     genop(op_,getarg(arg1))			:(opdone)
+g_scp	     
+	error('TODO lcp')				:(opdone)
+	genop(op_,getarg(arg1))			:(opdone)
 
 *	*   3.3	 LCW  _reg_
 
@@ -2099,7 +2140,9 @@ g_scp	     genop(op_,getarg(arg1))			:(opdone)
 
 *	Execution of LCW may destroy XL .
 
-g_lcw  genop(op_,getarg(arg1))				:(opdone)
+g_lcw  
+	error('TODO lcp')				:(opdone)
+	genop(op_,getarg(arg1))				:(opdone)
 
 *	*   3.4	 ICP
 
@@ -2109,7 +2152,9 @@ g_lcw  genop(op_,getarg(arg1))				:(opdone)
 
 *	Current implementation keeps *CP* in memory.
 
-g_icp	genop(op_,getarg(arg1))				:(opdone)
+g_icp	
+	error('TODO lcp')				:(opdone)
+	genop(op_,getarg(arg1))				:(opdone)
 
 *	#### 4-	 Operations on Signed Integer Values
 
@@ -2263,6 +2308,8 @@ g_iov
 
 *	 #### 5- Operations on Real Values 
 
+*	Real arithmetic not supported for bootstrap version
+
 *	*   5.1	 LDR   _ops_
 
 *	Load real accumulator from  _ops_
@@ -2272,7 +2319,7 @@ g_iov
 *	Store real accumulator at  _ops_
 
 
-*	*   `5.3  ADR	_ops_
+*	*   5.3  ADR	_ops_
 
 *	ADD  _ops_ to real accumulator
 
@@ -2296,12 +2343,12 @@ g_iov
 
 *	Particular care may be needed on target machines having distinct overflow and divide by zero conditions.
 
-g_ldr
-g_str
-g_adr
-g_sbr
-g_mlr
-g_dvr
+*g_ldr
+*g_str
+*g_adr
+*g_sbr
+*g_mlr
+*g_dvr
 
 	t1 = getarg(arg1,'m_word')
 	genop('lea',w0,t1)
@@ -2318,15 +2365,16 @@ g_dvr
 *	These instructions can only occur immediately following an instruction which can cause real 
 *	overflow (ADR,SBR MLR DVR.
 
-g_rov
-g_rno
+*g_rov
+*g_rno
 	genop(op_,getarg(arg1))				:(opdone)
 
 *	*   5.9 NGR
 
 *	Negate real accumulator (change sign)
 
-g_ngr genop('call',op_)
+g_ngr 
+	genop('call',op_)
 							:(opdone)
 *	*   5.10 REQ  _plbl_
 
@@ -2355,12 +2403,13 @@ g_ngr genop('call',op_)
 
 *	The above conditional instructions do not affect the value stored in the real accumulator.
 
-g_req	jop = 'je'					:(g_r1)
-g_rne	jop = 'jne'					:(g_r1)
-g_rge	jop = 'jge'					:(g_r1)
-g_rgt	jop = 'jg'					:(g_r1)
-g_rle	jop = 'jle'					:(g_r1)
-g_rlt	jop = 'jl'
+*g_req	jop = 'je'					:(g_r1)
+*g_rne	jop = 'jne'					:(g_r1)
+*g_rge	jop = 'jge'					:(g_r1)
+*g_rgt	jop = 'jg'					:(g_r1)
+*g_rle	jop = 'jle'					:(g_r1)
+*g_rlt	jop = 'jl'
+
 g_r1	genop('call','cpr_')
 
 	genop('mov','al','byte [reg_fl]')
@@ -2406,14 +2455,14 @@ g_r1	genop('call','cpr_')
 *	The result of any of the above operations is undefined or out of range, real overflow is set,
 *	the contents of (RA) are undefined and the following instruction must be either ROV or RNO
 
-g_atn
-g_chp
-g_cos
-g_etx
-g_lnf
-g_sin
-g_sqr
-g_tan
+*g_atn
+*g_chp
+*g_cos
+*g_etx
+*g_lnf
+*g_sin
+*g_sqr
+*g_tan
 
 	genop('call',op_)
 							:(opdone)
@@ -2453,6 +2502,8 @@ g_tan
 
 g_plc
 g_psc
+
+	error('TODO plc,psc')				:(opdone)
 
 	ne(cfp_b,cfp_c)					:s(g_plc.1)
 
@@ -2526,6 +2577,7 @@ g_lcg_2							:(opdone)
 
 g_sch
 
+	error('TODO sch')				:(opdone)
 	t2 = text(arg2)
 	eq(type(arg1),8)				:s(g_scg_w)
 	t1 = getarg(arg1)
@@ -2565,6 +2617,7 @@ g_sch
 
 g_csc	ident(thislabel)				:s(opnext)
 
+	error('TODO sch')				:(opdone)
 	genop()						:(opdone)
 
 *	*   6.6	 CEQ   _opw,opw,plbl_
@@ -2572,6 +2625,7 @@ g_csc	ident(thislabel)				:s(opnext)
 *	Jump to _plbl_	_opw_ eq  _opw_
 
 g_ceq
+	error('TODO ceq')				:(opdone)
 
 	memmem()
 	genop('cmp',getarg(arg1),getarg(arg2))
@@ -2581,7 +2635,8 @@ g_ceq
 
 *	Jump to _plbl_	_opw_ ne  _opw_
 
-g_cne	memmem()
+g_cne	
+	error('TODO cne')				:(opdone)
 
 	genop('cmp',getarg(arg1),getarg(arg2))
 	genop('jnz',getarg(arg3))
@@ -2609,6 +2664,7 @@ g_cne	memmem()
 *	comparisons difficult (dependent in general on shifts and masking).
 
 g_cmc
+	error('TODO cmc')				:(opdone)
 
 	genop('repe','cmps_b')
 	genop('mov',xl,'0')
@@ -2639,6 +2695,7 @@ g_cmc
 
 g_trc
 
+	error('TODO cmc')				:(opdone)
 	genop('xchg',xl,xr)
 	eq(cfp_b,cfp_c) genopl((t1 = genlab()) '	:','movzx',w0,'m_char [' xr ']')
 	ne(cfp_b,cfp_c) genopl((t1 = genlab()) '	:','mov',w0,'m_char [' xr ']')
@@ -2667,13 +2724,19 @@ g_flc
 
 *	And bit string values, result in _w_
 
-g_anb	genop('and',getarg(arg1),getarg(arg2))		:(opdone)
+g_anb	
+	
+	error('anb not supported')
+	genop('and',getarg(arg1),getarg(arg2))		:(opdone)
 
 *	*   7.2	 ORB   _w,opw_
 
 *	Or bit string values, result in _w_
 
-g_orb	genop('or',getarg(arg1),getarg(arg2))		:(opdone)
+g_orb	
+	error('orb not supported')
+
+	genop('or',getarg(arg1),getarg(arg2))		:(opdone)
 
 *	*   7.3	 XOB   _w,opw_
 
@@ -2682,7 +2745,10 @@ g_orb	genop('or',getarg(arg1),getarg(arg2))		:(opdone)
 *	In the above operations, the logical connective is applied separately to each of the CFP$N bits.
 *	The result is stored in the second operand location.
 
-g_xob	genop('xor',getarg(arg1),getarg(arg2))		:(opdone)
+g_xob	
+
+	error('xor not supported')
+	genop('xor',getarg(arg1),getarg(arg2))		:(opdone)
 
 *	*   7.4	 CMB  _w_
 
@@ -2690,7 +2756,10 @@ g_xob	genop('xor',getarg(arg1),getarg(arg2))		:(opdone)
 
 *	This statement is NOT used in Minimal version of SPITBOL, so no need to translate it.
 
-g_cmb	genop('not',getarg(arg1))				:(opdone)
+g_cmb	
+	error('cmb not supported')
+
+	genop('not',getarg(arg1))				:(opdone)
 
 *	*   7.5	 RSH  _w,val_
 
@@ -2698,6 +2767,7 @@ g_cmb	genop('not',getarg(arg1))				:(opdone)
 
 g_rsh
 
+	error('shr not supported')
 	genop('shr',getarg(arg1),getarg(arg2))		:(opdone)
 
 
@@ -2707,6 +2777,7 @@ g_rsh
 
 g_lsh
 
+	error('lsh not supported')
 	genop('shl',getarg(arg1),getarg(arg2))		:(opdone)
 
 *	*   7.7	 RSX  _w,(x)_
@@ -2721,7 +2792,10 @@ g_rsx
 
 *	Jump to _plbl_ w is not all zero bits.
 
-g_nzb	isreg(arg1)					:s(g_nzb1)
+g_nzb	
+	error('TODO nzb')				:(opdone)
+
+	isreg(arg1)					:s(g_nzb1)
 
 	genop('cmp',getarg(arg1),'0')
 	genop('jnz',getarg(arg2))
@@ -2760,6 +2834,7 @@ g_zrb1
 
 g_zgb
 
+	error('TODO zgb')				:(opdone)
 	genop('nop')					:(opdone)
 
 
@@ -2775,7 +2850,9 @@ g_zgb
 
 *	That is, multiply by CFP$B . This is a no-op if CFP$B  is one.
 
-g_wtb	genop('sal',getarg(arg1),'log_cfp_b')		:(opdone)
+g_wtb	
+	error('TODO wtb')				:(opdone)
+	genop('sal',getarg(arg1),'log_cfp_b')		:(opdone)
 
 *	*   8.2	 BTW  _reg_
 
@@ -2785,13 +2862,17 @@ g_wtb	genop('sal',getarg(arg1),'log_cfp_b')		:(opdone)
 *	The following instructions provide for conversion of one word integer values (addresses) 
 *	to and from the full signed integer format.
 
-g_btw	genop('shr',getarg(arg1),'log_cfp_b')		:(opdone)
+g_btw	
+	error('TODO wtb')				:(opdone)
+	genop('shr',getarg(arg1),'log_cfp_b')		:(opdone)
 
 *	*   8.3	 MTI   _opn_
 
 *	The value of _opn_ (an address) is moved as a positive integer to the integer accumulator.
 
-g_mti	ident(text(arg1),'(xs)+')			:f(g_mti.1)
+g_mti	
+	error('TODO wtb')				:(opdone)
+	ident(text(arg1),'(xs)+')			:f(g_mti.1)
 
 	genop('pop',w0)
 	genop('ldi_',w0)				:(opdone)
@@ -2814,6 +2895,7 @@ g_mti.1
 *	The following instructions provide for conversion between real values and integer values.
 
 g_mfi
+	error('TODO mfi')				:(opdone)
 
 *	last arg is optional
 *	compare with cfp$m, branching if result negative
@@ -2842,6 +2924,7 @@ g_mfi.2
 *	(may lose precision in some cases)
 
 g_itr
+	error('TODO itr')				:(opdone)
 
 	genop('call','itr_')				:(opdone)
 
@@ -2857,6 +2940,7 @@ g_itr
 *	The following instructions provide for computing the length of storage required for a text string_
 
 g_rti
+	error('TODO rti')				:(opdone)
 
 	genop('rti_')
 	eq(type(arg1))					:s(opdone)
@@ -2876,6 +2960,7 @@ g_rti
 
 g_ctb
 
+	error('TODO ctb')				:(opdone)
 	t1 = getarg(arg1)
 	eq(cfp_b,cfp_c)					:s(g_ctb.1)
 
@@ -2899,7 +2984,9 @@ g_ctb.1
 *	The result is out of range, then control is passed to _plbl_ with the result in 
 *	(IA) undefined. execution of CVM leaves the result in (WB ) undefined.
 
-g_cvm	t1 = getarg(arg1)
+g_cvm	
+	error('TODO ctb')				:(opdone)
+	t1 = getarg(arg1)
 
 	genop('sti_',w0)
 	genop('imul',w0,'10')
@@ -2923,6 +3010,7 @@ g_cvm	t1 = getarg(arg1)
 
 g_cvd
 
+	error('TODO cvd')				:(opdone)
 	genop('cvd_')					:(opdone)
 
 *	#### 9-	 Block Move Instructions
@@ -2961,6 +3049,7 @@ g_mvc
 *	     use word move if character size is word size.
 *	     if charsize is word size, convert character count to byte count for word move
 
+	error('TODO mvc')				:(opdone)
 	ne(cfp_b,cfp_c)					:s(g_mvw)
 	z_suspend = 1
 	genop('call',incode)
@@ -2993,6 +3082,7 @@ g_mvc
 
 g_mvw
 
+	error('TODO mvw')				:(opdone)
 	z_suspend = 1
 	genop('call',incode)
 	z_suspend = 0
@@ -3018,6 +3108,7 @@ g_mvw
 
 g_mwb
 
+	error('TODO mwb')				:(opdone)
 	genop('call',incode)					:(opdone)
 
 *	*   9.4	 MCB
@@ -3047,6 +3138,7 @@ g_mcb
 
 *	     use word move if character size is word size
 
+	error('TODO mcb')				:(opdone)
 	ne(cfp_b,cfp_c)					:s(g_mwb)
 	genop('call',incode)				:(opdone)
 
@@ -3073,6 +3165,7 @@ g_mcb
 
 g_chk
 
+	error('TODO chk')				:(opdone)
 	genop('cmp',xs,'lowspmin')
 	genop('jb','sec06')
 							:(opdone)
@@ -3091,6 +3184,7 @@ g_chk
 
 g_dac
 
+	error('TODO dac')				:(opdone)
 	t1 = type(arg1)
 	genopl(thislabel,'.word',text(arg1))
 							:(decend)
@@ -3103,6 +3197,7 @@ g_dac
 
 g_dic
 
+	error('TODO dic')				:(opdone)
 	genopl(thislabel,'.int',text(arg1))
 							:(decend)
 *	*   11.3 DRC  _real_
@@ -3114,6 +3209,7 @@ g_dic
 
 g_drc
 
+	error('TODO drc')				:(opdone)
 	genop('align',8)
 	t1 = text(arg1)
 	t1 ? fence "+" = ""
@@ -3142,6 +3238,7 @@ g_drc
 
 g_dtc
 
+	error('TODO dtc')				:(opdone)
 *	change first and last chars to " (assume / used in source)
 
 	t1 = text(arg1)
@@ -3173,6 +3270,7 @@ g_dtc.1
 
 g_dbc
 
+	error('TODO dbc')				:(opdone)
 	genopl(thislabel,'.word',getarg(arg1))		:(opdone)
 
 decend
