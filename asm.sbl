@@ -156,54 +156,21 @@ chktrace_end
 -stitl	flush
 	define('flush()')				:(flush_end)
 
-*	here to emit bstmts, cstmts, astmts. attach input label and
-*	comment to first instruction generated.
+*	here to emit  attach input label and comment to first instruction generated.
 
 flush
 
-	eq(astmts.n) eq(bstmts.n) eq(cstmts.n)		:f(flush_0)
+** This should be no-op since genaop, genbop and gencop used inx x65 implementation no longer needed. 
+
+							:(return)
 
 *	here if some statements to emit, so output single 'null' statement 
 *	to get label and comment field right.
 
 	label = thislabel =
-	outstmt(tstmt())				:(flush_6)
+	outstmt(tstmt())				:(return)
 
 flush_0
-
-	eq(bstmts.n)					:s(flush_2)
-	i = 1
-
-flush_1
-
-	outstmt(bstmts[i])
-	le(i = i + 1, bstmts.n)				:s(flush_1)
-
-flush_2
-
-	eq(cstmts.n)					:s(flush_4)
-	i = 1
-
-flush_3
-
-	outstmt(cstmts[i])
-	le(i = i + 1, cstmts.n)				:s(flush_3)
-
-flush_4	       eq(astmts.n)				:s(flush_6)
-
-	i = 1
-	ident(pifatal[incode])				:s(flush_5)
-*	here if post incrementing code not allowed
-	error('post increment not allowed for op ' incode)
-
-flush_5
-
-	outstmt(astmts[i])
-	le(i = i + 1, astmts.n)				:s(flush_5)
-
-flush_6
-
-	astmts.n = bstmts.n = cstmts.n =		:(return)
 
 flush_end
 -stitl define('genrep(op)
@@ -334,14 +301,16 @@ fetch_10
 
 *  (x)+, register indirect, post increment
 
-	genop('ldr',reg, '[' text(iarg), 'asl 2'])
+	ident(text(iarg),'(xs)+) genop('pop','{' reg '})	:s(return)
+
+	genop('ldr',reg, '[' text(iarg), const(cfp_b)])
 
 
 fetch_11
 
 *	-(x), register indirect, pre decrement
 
-	genop('ldr',reg, '[' text(iarg), 'arl 2'])
+	genop('ldr',reg, '[' text(iarg), const(-cfp_b)])
 
 								:(fetch_done)
 
@@ -366,36 +335,7 @@ fetch_15
 fetch_done
 
 								:(return)
-*	adjust appropriate argument register.
-
-	arg1 = eq(argnum,1) iarg
-	arg2 = eq(argnum,2) iarg
-	arg3 = eq(argnum,3) iarg			:(return)
-
 fetch_end
--stitl genaop(stmt)
-	define('genaop(stmt)')				:(genaop_end)
-
-*	generates code for statements that must be executed
-*	after this instruction.
-
-genaop
-
-	astmts[astmts.n = astmts.n + 1] = stmt		:(return)
-
-genaop_end
--stitl genbop(stmt)
-	define('genbop(stmt)')				:(genbop_end)
-
-*	generates code for statements that must be executed
-*	before this instruction.
-
-
-genbop
-
-	bstmts[bstmts.n = bstmts.n + 1] = stmt		:(return)
-
-genbop_end
 -stitl genlab()
 
 	define('genlab()')				:(genlab_end)
@@ -491,9 +431,10 @@ getarg_c.10
 
 	l1 = substr(l1,2,2)
 	t1 = l1
-	getarg = tmem '[' t1 ']'
-	(ident(l1,xs) genaop(tstmt(,'add',t1,'cfp_b'))) :s(return)
-	genaop(tstmt(,'lea',t1,'[' t1 '+cfp_b]'))	:(return)
+** FIX *
+*	getarg = tmem '[' t1 ']'
+*	(ident(l1,xs) genaop(tstmt(,'add',t1,'cfp_b'))) :s(return)
+*	genaop(tstmt(,'lea',t1,'[' t1 '+cfp_b]'))	:(return)
 
 getarg_c.11
 
@@ -779,19 +720,19 @@ skip_init	s break(':') . on ':' rem . off		:f(return)
 	skip_off[off] = 1				:(return)
 
 skip_init_end
--sttl	symbol	return value of symbol defined in definition section
-	define('const(iarg)val')			:(symbol_end)
+-sttl	const	return value of symbol defined in definition section
+	define('const(iarg)val')			:(const_end)
 
 *	If the argument is a symbol defined in the definition section then
 *	return the symbol expressed as an immediate constant.
 *	If the argument is an integer, return the integer as an immediate constant.
 
-symbol
+const
 
-	symbol = convert(iarg,'integer) '#' convert(iarg,'integer') :s(return)
+	const = convert(iarg,'integer) '#' convert(iarg,'integer') :s(return)
 
 	ne(type(iarg),2) error('request for undefined symbol: ' text(iarg))	:(return)
-	symbol = '#' text(iarg)				:(return)
+	const = '#' text(iarg)				:(return)
 
 symbol_end
 -sttl	init - initialize global constants and variables
@@ -855,7 +796,8 @@ init
 	ia = wc
 	cp = 'cp' 
 
-*	pc is the program counter. We use PC when explicitly maniupulating the stack.
+*	pc is the program counter. We use PC when explicitly maniupulating the program branch, typically
+*	as part of a branch.
 
 	pc = 'pc'
 	PC = pc
@@ -1221,8 +1163,15 @@ ds.typerr
 
 g_mov
 
-	fetch(w1,1)
+	ident(text(arg1),'-(xs)')			:s(g_mov_push)
+	fetch(w1,arg1)
 	store(w1,arg2)					:(opdone)
+
+g_mov_push
+
+	fetch(w2,arg)
+	genop('push', '{' w2 '}')			:(opdone)
+
 
 *	* 1.2  BRN  _plbl_    unconditional branch
 
@@ -1255,7 +1204,7 @@ g_brn
 
 g_bsw
 
-	fetch(w1,1)
+	fetch(w1,arg1)
 	genop('mov',w2,const(arg2))
 	t2 = genlab()
 	z_suspend = 1
@@ -1363,7 +1312,7 @@ g_ent
 
 g_bri
 
-	fetch(w1,1)
+	fetch(w1,arg1)
 	genop('mov',PC,r1)				:(opdone)
 
 *	*   1.8	 LEI  _x_	  load entry point identification
@@ -1633,7 +1582,7 @@ g_ctw
 
 *	assume cfp_c chars per word
 
-	fetch(w1,1)
+	fetch(w1,arg1)
 	error('TODO ctw')				:(opdone)
 	t1 = getarg(arg1)
 	eq(cfp_b,cfp_c)					:s(g_ctw.1)
@@ -1787,7 +1736,7 @@ g_end.2
 
 g_icv
 
-	fetch(w1,1)
+	fetch(w1,arg1)
 	genop('add',
 	genop('inc',w1,const(1))			:(opdone)
 
@@ -1798,7 +1747,7 @@ g_icv
 g_dcv
 
 	error('TODO dcv')				:(opdone)
-	fetch(w1,1)
+	fetch(w1,arg1)
 	genop('dec',w1,const(1))			:(opdone)
 
 *	*   1.18 ZER   _opn_
@@ -1872,8 +1821,8 @@ g_mnz
 
 g_add
 
-	fetch(w1,1)
-	fetch(w2,2)
+	fetch(w1,arg1)
+	fetch(w2,arg3)
 	genop('add',w1,w1,w2)
 	store(w1, 1)					:(opdone)
 
@@ -1884,8 +1833,8 @@ g_add
 g_sub
 
 
-	fetch(w1,1)
-	fetch(w2,2)
+	fetch(w1,arg1)
+	fetch(w2,arg3)
 	genop('sub',w1,w1,w2)
 	store(w1, 1)					:(opdone)
 
@@ -1897,7 +1846,7 @@ g_sub
 
 g_ica	
 
-	fetch(w1,1)
+	fetch(w1,arg1)
 	genop('add',w1,const('cfp_b'))
 	store(w1,1)					:(opdone)
 
@@ -1907,7 +1856,7 @@ g_ica
 
 g_dca
 
-	fetch(w1,1)
+	fetch(w1,arg1)
 	genop('sub',w1,const('cfp_b'))
 	store(w1,1)					:(opdone)
 
@@ -1968,12 +1917,12 @@ g_dca
 
 g_bop
 
-	fetch(w1,1)
-	fetch(w2,2)
+	fetch(w1,arg1)
+	fetch(w2,arg3)
 	genop('cmp',w1,w2)
 	fetch(w0,3)
 	genop('cmp',w1,w2)
-	genop('mov' g_bop,pc,w0)
+	genop('mov' g_bop,PC,w0)
 							:(opdone)
 
 *	*   2.13 BNZ   _opn,plbl_
@@ -1986,19 +1935,19 @@ g_bop
 
 g_bnz
 
-	fetch(w1,1)
+	fetch(w1,arg1)
 	genop('adr',text(arg3))
 	genop('ors',w1,w1)
 	fetch(w3,1)
-	genop('movne',pc, w3)				:(opdone)
+	genop('movne',PC, w3)				:(opdone)
 
 g_bze	
 
-	fetch(w1,1)
+	fetch(w1,arg1)
 	genop('adr',text(arg3))
 	genop('ors',w1,w1)
 	fetch(w3,1)
-	genop('moveq',pc, w3)				:(opdone)
+	genop('moveq',PC, w3)				:(opdone)
 
 *	*   2.15 LCT  _w,opv_
 
@@ -2024,8 +1973,8 @@ g_lct
 
 g_lct.1
 
-	fetch(w1,1)
-	fetch(w2,2)
+	fetch(w1,arg1)
+	fetch(w2,arg3)
 	genop('mov',w1,w2)				:(opdone)
 
 *	*   2.16 BCT  _w,plbl_
@@ -2154,7 +2103,7 @@ g_icp
 
 g_ldi
 
-	fetch(w1,1)					:(opdone)
+	fetch(w1,arg1)					:(opdone)
 
 *	*   4.2	 ADI   _ops_
 
@@ -2162,7 +2111,7 @@ g_ldi
 
 g_adi
 
-	fetch(w1,1)
+	fetch(w1,arg1)
 	genop('adds',wc,w1)				:(opdone)
 
 *	*   4.3	 MLI   _ops_ 
@@ -2171,7 +2120,7 @@ g_adi
 
 g_mli
 
-	fetch(w1,1)
+	fetch(w1,arg1)
 	genop('muls',wc,wc,w1)				:(opdone)
 
 *	*   4.4	 SBI   _ops_
@@ -2180,7 +2129,7 @@ g_mli
 
 g_sbi
 
-	fetch(w1,1)
+	fetch(w1,arg1)
 	genop('subs',wc,w1)				:(opdone)
 
 *	*   4.5	 DVI   _ops_
@@ -2193,7 +2142,7 @@ g_dvi
 *	In ARM V7, signed and unsigned division are avilable in the THUMB instruction set, with
 *	the instructions UDIV and SDIV.
 
-	fetch(w1,1)
+	fetch(w1,arg1)
 
 *	need to check if divisor is zero, so can catch via software.
 
@@ -2206,7 +2155,7 @@ g_dvi
 
 g_rmi
 
-	fetch(w1,1)
+	fetch(w1,arg1)
 	error ('rmi todo')				:(opdone)
 
 *	*   4.7	 STI   _ops_
@@ -2497,9 +2446,9 @@ g_r1	genop('call','cpr_')
 g_plc
 g_psc
 
-	fetch(w1,1)
-	ident(arg2) genop('mov',w2,const(0))
-	differ(arg2) fetch(w2,2)
+	fetch(w1,arg1)
+	ident(arg2) genop('xor',w2,w2)
+	differ(arg2) fetch(w2,arg3)
 	genop('add',w1,w2,'cfp_f')			:(opdone)
 
 *	*   6.3	 LCH  _reg,opc_
@@ -2508,7 +2457,10 @@ g_psc
 
 g_lch
 
-	genop('mov',fetch(w1,1),fetch(w2,2))		:(opdone)
+	eq(type(arg2),09) genop('ldrb', text(arg1),  '[' substr(arg2,2,2) ']')
+	eq(type(arg2),10) genop('ldrb', text(arg1),  '[' substr(arg2,2,2), const(-1) ']!');* post indexed
+	eq(type(arg2),11) genop('ldrb', text(arg1),  '[' substr(arg2,2,2), const(1) ']!');* pre indexed
+							:(opdone)
 
 
 *	*   6.4	 SCH  _reg,opc_
@@ -2520,8 +2472,10 @@ g_lch
 
 g_sch
 
-
-	genop('str',fetch(w1,1),fetch(w2,2))		:(opdone)
+	eq(type(arg2),09) genop('strb', text(arg1),  '[' substr(arg2,2,2) ']')
+	eq(type(arg2),10) genop('strb', text(arg1),  '[' substr(arg2,2,2), const(-1) ']!');* post indexed
+	eq(type(arg2),11) genop('strb', text(arg1),  '[' substr(arg2,2,2), const(1) ']!');* pre indexed
+							:(opdone)
 
 *	*   6.5	 CSC  _x_
 
@@ -2539,8 +2493,14 @@ g_sch
 *	zeroises the last word of a string frame prior to SCH sequence being started so CSC 
 *	must not nullify this action.)
 
-*	The following instructions are used to compare two words containing
-*	CFP$C characters.
+g_csc	
+
+	genop()						:(opdone)
+
+
+*  ## CMD and CNE
+
+*	The following instructions are used to compare two words containing CFP$C characters.
 
 *	Comparisons distinct from BEQ BNE are provided as on some target machines, the possibility 
 *	of the sign bit being set may require special action.
@@ -2548,21 +2508,18 @@ g_sch
 *	Note that restriction 2 above, eases use of these orders in testing complete strings for 
 *	equality, since whole word tests are possible.
 
-g_csc	
-
-	genop()						:(opdone)
-
 *	*   6.6	 CEQ   _opw,opw,plbl_
 
 *	Jump to _plbl_	_opw_ eq  _opw_
 
 g_ceq
 
-	fetch(w1,1)
-	fetch(w2,2)
+	fetch(w1,arg1)
+	fetch(w2,arg3)
 	genop('adr',w3,text(arg3))
-	genop('cmp'w1,w2)
-	genop('jeq',w3)					:(opdone)
+	genop('cmp',w1,w2)
+	ident(incode,'ceq') genop('moveq',PC,w3)
+	ident(incode,'cne') genop('movne',PC,w3)
 
 *	*   6.7	 CNE   _opw,opw,plbl_
 
@@ -2570,11 +2527,7 @@ g_ceq
 
 g_cne	
 
-	fetch(w1,1)
-	fetch(w2,2)
-	genop('adr',w3,text(arg3))
-	genop('cmp'w1,w2)
-	genop('jeq',w3)					:(opdone)
+							:(g_ceq_
 
 *	*   6.8	 CMC  _plbl_,_plbl_
 
@@ -2591,32 +2544,45 @@ g_cne
 *	XL and XR should have been prepared by PLC control passes to first _plbl_ the first string is 
 *	lexically less than the second string, and to the second _plbl_ the first string is lexically greater.
 
-*	Control passes to the following instruction the strings are identical. after executing this 
+*	Control passes to the following instruction if the strings are identical. After executing this 
 *	instruction, the values of XR and XL are set to zero and the value in (WA) is undefined.
 
 *	Arguments to CMC may be complete or partial strings, so making optimisation to use whole word 
 *	comparisons difficult (dependent in general on shifts and masking).
 
 g_cmc
-	error('TODO cmc')				:(opdone)
 
-*HERE*
+	loop_lbl = genlab()
+	done_lbl = genlab()
+	
+	genopl(looplbl,'nop')
+	fetch(w1,minarg(10,'(xl)+'))
+	fetch(w2,minarg(10,'(xr)+'))
+	genop('cmp',w1,w2)
 
-	genop('repe','cmps_b')
-	genop('mov',xl,'0')
-	genop('mov',xr,xl)
-	t1 = getarg(arg1)
-	t2 = getarg(arg2)
-	(ident(t1,t2) genop('jnz',t1))			:s(opdone)
-	genop('ja',t2)
-	genop('jb',t1)					:(opdone)
+	genop('ldrlt',w0,text(arg1))
+	genop('movlt',PC,w0)
+
+	genop('adrgt',w0,text(arg2))
+	genop('movgt',PC,w0)
+
+	genop('subs',wa,const(1))
+
+	genop('adrne',w0,loop_lbl)
+	genop('movne',PC,w0);* loop back if more characters
+*	
+	Here if same, so clear xl and xr, then fall through to next instruction
+
+	genopl(done_lbl,'xor',xl,xl)
+	genop('xor',xr,xr)
+							:(opdone)
 
 *	*   6.9	 TRC
 
 *	Translate characters
 
 *	TRC is used to translate a character string using a supplied translation table.
-*	Before executing *trc* the registers are set as follows.
+*	Before executing _TRC_ the registers are set as follows.
 
 *	```
 *		    (XL)	     char ptr to string to be translated
@@ -2624,25 +2590,32 @@ g_cmc
 *		    (WA)	     length of string to be translated
 *	```
 
-*	XL and XR should have been prepared by PLC the translate table consists of CFP$A* 
-*	contiguous characters giving the translations of the CFP$A* characters in the alphabet.
+*	XL and XR should have been prepared by PLC  The translate table consists of CFP$A 
+*	contiguous characters giving the translations of the CFP$A characters in the alphabet.
 
-*	On completion, (XR ) and (XL ) are set to zero and (WA) is undefined.
+*	On completion, (XR) and (XL) are set to zero and (WA) is undefined.
 
 g_trc
 
-	error('TODO cmc')				:(opdone)
-	genop('xchg',xl,xr)
-	eq(cfp_b,cfp_c) genopl((t1 = genlab()) '	:','movzx',w0,'m_char [' xr ']')
-	ne(cfp_b,cfp_c) genopl((t1 = genlab()) '	:','mov',w0,'m_char [' xr ']')
-	ne(cfp_b,cfp_c) genop('sal', w0, 'log_cfp_b');* convert char value to byte offset
-	eq(cfp_b,cfp_c) genop('mov','al', '[' xl '+' w0 ']')
-	ne(cfp_b,cfp_c) genop('mov',w0,'[' xl '+' w0 ']')
-	genop('stos' op_c)
-*	     genop('loop',t1)
-	genop('dec',wa)
-	genop('jnz',t1)
-	genop('xor',xl,xl)
+	loop_lbl = genlab()
+	done_lbl = genlab()
+	
+	genop('adr',w0,minop(0,'(xr)'));* address of translate table
+
+	genopl(looplbl,'nop')
+
+	fetch(w2,minarg(10,'(xl)+','char'));* get next character to translate
+	genop('add',w1,w0,w2);* get addr of replacement character
+	genop('ldr',w1,'[' w1 ']', 'char');* get replacement character
+	genop('strb',w1,minarg(9,'(xr)');* store back replacement characte
+	genop('subs',wa,const(1))
+
+	genop('adrne',w0,loop_lbl)
+	genop('movne',PC,w0);* loop back if more characters
+*	
+	Here when done, so clear xl and xr, then fall through to next instruction
+
+	genopl(done_lbl,'xor',xl,xl)
 	genop('xor',xr,xr)
 							:(opdone)
 *	*   6.10 FLC  _w_
@@ -2651,8 +2624,7 @@ g_trc
 
 g_flc
 
-	output = 'flc  not supported ' (end)
-							:(opdone)
+	error('flc  not supported ')			:(opdone)
 
 *	#### 7- Operations on Bit String Values
 
@@ -2661,30 +2633,32 @@ g_flc
 *	And bit string values, result in _w_
 
 g_anb	
-	
-	error('anb not supported')
-	genop('and',getarg(arg1),getarg(arg2))		:(opdone)
+
+	reg = text(arg1)
+	fetch(w1,arg2)
+	genop('and',reg,reg,w1)				:(opdone)
 
 *	*   7.2	 ORB   _w,opw_
 
 *	Or bit string values, result in _w_
 
-g_orb	
-	error('orb not supported')
+	reg = text(arg1)
+	fetch(w1,arg2)
+	genop('or',reg,reg,w1)				:(opdone)
 
-	genop('or',getarg(arg1),getarg(arg2))		:(opdone)
+g_orb	
 
 *	*   7.3	 XOB   _w,opw_
 
 *	Exclusive or bit string values, result in _w_
 
 *	In the above operations, the logical connective is applied separately to each of the CFP$N bits.
-*	The result is stored in the second operand location.
 
 g_xob	
 
-	error('xor not supported')
-	genop('xor',getarg(arg1),getarg(arg2))		:(opdone)
+	reg = text(arg1)
+	fetch(w1,arg2)
+	genop('eor',reg,reg,w1)				:(opdone)
 
 *	*   7.4	 CMB  _w_
 
@@ -2693,9 +2667,12 @@ g_xob
 *	This statement is NOT used in Minimal version of SPITBOL, so no need to translate it.
 
 g_cmb	
-	error('cmb not supported')
 
-	genop('not',getarg(arg1))				:(opdone)
+	errror('unexpected/unsupported use of cmb operator')	:(opdone)
+
+*	#### Shift operations
+
+*	The following operations are logical shifts, not arithmetic shifts.
 
 *	*   7.5	 RSH  _w,val_
 
@@ -2703,9 +2680,9 @@ g_cmb
 
 g_rsh
 
-	error('shr not supported')
-	genop('shr',getarg(arg1),getarg(arg2))		:(opdone)
-
+	reg = text(arg1)
+	fetch(w1,arg2)
+	genop('and',reg,reg,w1)				:(opdone)
 
 *	*   7.6	 LSH  _w,val_
 
@@ -2713,8 +2690,9 @@ g_rsh
 
 g_lsh
 
-	error('lsh not supported')
-	genop('shl',getarg(arg1),getarg(arg2))		:(opdone)
+	reg = text(arg1)
+	fetch(w1,arg(2))
+	genop('lsl',reg,reg,w1)				:(opdone)
 
 *	*   7.7	 RSX  _w,(x)_
 
@@ -2722,38 +2700,33 @@ g_lsh
 
 g_rsx
 
-	error('rsx not supported')
+	reg = text(arg1)
+	fetch(w1,arg(2))
+	genop('lsr',reg,reg,w1)				:(opdone)
 
-*	*   7.9	 NZB  w,_plbl_
+
+*	*   7.9	 NZB  _w,plbl_
 
 *	Jump to _plbl_ w is not all zero bits.
 
 g_nzb	
-	error('TODO nzb')				:(opdone)
-
-	isreg(arg1)					:s(g_nzb1)
-
-	genop('cmp',getarg(arg1),'0')
+	
+	reg = text(arg1)
+	genop('or',reg,reg)
+	genop('adrne',w0,text(arg2))
+	genop('movne,PC,w0)
 	genop('jnz',getarg(arg2))
 							:(opdone)
-g_nzb1
 
-	genop('or',getarg(arg1),getarg(arg1))
-	genop('jnz',getarg(arg2))
-							:(opdone)
 *	*   7.10 ZRB  w,_plbl_
 
 *	Jump to _plbl_ w is all zero bits
 
-g_zrb	isreg(arg1)					:s(g_zrb1)
-
-	genop('cmp',getarg(arg1),'0')
-	genop('jz',getarg(arg2))
-							:(opdone)
-g_zrb1
-
-	genop('or',getarg(arg1),getarg(arg1))
-	genop('jz',getarg(arg2))
+g_zrb
+	reg = text(arg1)
+	genop('or',reg,reg)
+	genop('adreq',w0,text(arg2))
+	genop('moveq,PC,w0)
 							:(opdone)
 *	*   7.11 ZGB   _opn_
 
@@ -2770,9 +2743,8 @@ g_zrb1
 
 g_zgb
 
-	error('TODO zgb')				:(opdone)
-	genop('nop')					:(opdone)
-
+	genop('nop')
+							:(opdone)
 
 *	#### 8-	 Conversion Instructions
 
@@ -2787,8 +2759,8 @@ g_zgb
 *	That is, multiply by CFP$B . This is a no-op if CFP$B  is one.
 
 g_wtb	
-	error('TODO wtb')				:(opdone)
-	genop('sal',getarg(arg1),'log_cfp_b')		:(opdone)
+
+	genop('lsl',text(arg1), const('log_cfp_b'))	:(opdone)
 
 *	*   8.2	 BTW  _reg_
 
@@ -2799,28 +2771,21 @@ g_wtb
 *	to and from the full signed integer format.
 
 g_btw	
-	error('TODO wtb')				:(opdone)
-	genop('shr',getarg(arg1),'log_cfp_b')		:(opdone)
+
+	genop('lsr',text(arg1), const('log_cfp_b'))	:(opdone)
 
 *	*   8.3	 MTI   _opn_
 
 *	The value of _opn_ (an address) is moved as a positive integer to the integer accumulator.
 
 g_mti	
-	error('TODO wtb')				:(opdone)
-	ident(text(arg1),'(xs)+')			:f(g_mti.1)
 
-	genop('pop',w0)
-	genop('ldi_',w0)				:(opdone)
-
-g_mti.1
-
-	genop('ldi_',getarg(arg1))			:(opdone)
+	genop('ldr',ia, arg2)				:(opdone)
 
 *	*   8.4	 MFI   _opn,plbl_
 
 *	The value currently stored in the integer accumulator is moved to _opn_ as an address 
-*	it is in the range 0 to CFP$M inclusive.
+*	if it is in the range 0 to CFP$M inclusive.
 
 *	If the accumulator value is outside this range, then the result in _opn_ 
 *	is undefined and control is passed to _plbl_.
@@ -2831,28 +2796,28 @@ g_mti.1
 *	The following instructions provide for conversion between real values and integer values.
 
 g_mfi
-	error('TODO mfi')				:(opdone)
 
 *	last arg is optional
 *	compare with cfp$m, branching if result negative
 
 	eq(type(arg2))					:s(g_mfi.1)
 
-*	here if label given, branch if wc not in range (ie, negative)
+*	here if label given, branch if ia not in range (ie, negative)
 
-	genop('sti_',w0)
-	genop('or',w0,w0)
-	genop('js',getarg(arg2))
+	genop('mov',w0,ia)
+	genop('cmp',w0,w0)
+	genop('adrmi',w1,text(arg2);* branch if ia negative
+	genop('movmi',PC,w1)
+	genop('subs',w0,ia,const('cfp_m'));
+	genop('adrmi',w1,text(arg2)
+	genop('movmi',PC,w1);* branch if ia greater than cfp_m
+	store(ia,arg1)					:(opdone)
 
 g_mfi.1
 
-	ident(text(arg1),'-(xs)')			:s(g_mfi.2)
-	genop('sti_',getarg(arg1))			:(opdone)
+*	Here if no label given, so just update value of IA.
 
-g_mfi.2
-
-	genop('sti_',w0)
-	genop('push',w0)				:(opdone)
+	store(ia,arg1)					:(opdone)
 
 *	*   8.5	 ITR
 
@@ -2860,9 +2825,8 @@ g_mfi.2
 *	(may lose precision in some cases)
 
 g_itr
-	error('TODO itr')				:(opdone)
 
-	genop('call','itr_')				:(opdone)
+	error('g_itr real arithmetic not supported')	:(opdone)
 
 *	*   8.6	 RTI  _plbl_
 
@@ -2876,10 +2840,8 @@ g_itr
 *	The following instructions provide for computing the length of storage required for a text string_
 
 g_rti
-	error('TODO rti')				:(opdone)
 
-	genop('rti_')
-	eq(type(arg1))					:s(opdone)
+	error('g_rti real arithmetic not supported')	:(opdone)
 
 *	here if label given, branch if real too large
 
@@ -2893,22 +2855,11 @@ g_rti
 *	digit characters for use in numeric conversion routines. They employ negative integer 
 *	values to allow for proper conversion of numbers which cannot be complemented.
 
-
 g_ctb
 
-	error('TODO ctb')				:(opdone)
-	t1 = getarg(arg1)
-	eq(cfp_b,cfp_c)					:s(g_ctb.1)
-
-*	here if one word per character, so just add character count, then convert to byte count
-
-	genop('add',t1,text(arg2))
-	genop('sal',getarg(arg1),'log_cfp_b')		:(opdone)
-
-g_ctb.1
-
-	genop('add',t1,'(cfp_b-1)+cfp_b*' text(arg2))
-	genop('and',t1,'-cfp_b')
+	reg = text(arg1)
+	genop('add',reg,reg,const('(cfp_b-1)+cfp_b*' text(arg2)))
+	genop('and',reg,const('-cfp_b'))
 							:(opdone)
 *	*   8.9	 CVM  _plbl_
 
@@ -2918,7 +2869,7 @@ g_ctb.1
 *	character code for a digit. the value of this digit is then subtracted from the result.
 
 *	The result is out of range, then control is passed to _plbl_ with the result in 
-*	(IA) undefined. execution of CVM leaves the result in (WB ) undefined.
+*	(IA) undefined. execution of CVM leaves the result in (WB) undefined.
 
 g_cvm	
 	error('TODO ctb')				:(opdone)
@@ -2951,21 +2902,21 @@ g_cvd
 
 *	#### 9-	 Block Move Instructions
 
-*	The following instructions are used for transferring data from one area of memory 
-	to another in blocks.  They can be implemented with the indicated series of other 
-*	macro-instructions, but more efficient implementations will be possible on most machines.
+*	The following instructions are used for transferring data from one area of memory to another
+*	in blocks.  They can be implemented with the indicated series of other macro-instructions,
+*	but more efficient implementations will be possible on most machines.
 
 *	Note that in the equivalent code sequence shown below, a zero value in WA will move at 
-*	least one item, and may may wrap the counter causing a core dump in some imple- mentations.
-*	  Thus WA should be greater than 0 prior to invoking any of these block move instructions.
+*	least one item, and may may wrap the counter causing a core dump in some implementations.
+*	Thus WA should be greater than 0 prior to invoking any of these block move instructions.
 
 *	*   9.1	 MVC
 
 *	Move characters
 
 
-*	Before obeying this order WA,XL ,XR should have been set up, the latter two by PLC
-*	PSC resp.  MVC is equivalent to the sequence
+*	Before obeying this order WA,XL ,XR should have been set up, the latter two by PLC PSC resp.
+*	MVC is equivalent to the sequence
 
 *	```
 *			   mov	dumpb,WB
