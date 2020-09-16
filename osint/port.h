@@ -76,6 +76,7 @@ Copyright 2012-2017 David Shields
 /*
  *  Other defaulted values that may be overridden in systype.h
  */
+#define m32
 #ifdef m32		// 32 bit words
 #ifndef INTBITS
 #define INTBITS		32
@@ -89,22 +90,6 @@ Copyright 2012-2017 David Shields
 #define IABITS      	32      // Integer accumulator (IA) width
 #endif
 #endif
-
-#ifndef m32		// 64 bit words
-#ifndef INTBITS
-#define INTBITS		64
-#define MAXINT		0x7FFFFFFFFFFFFFFFL
-#endif
-#ifndef WORDBITS
-#define WORDBITS	64
-#define MAXPOSWORD	0x7FFFFFFFFFFFFFFFL
-#endif
-#ifndef IABITS
-#define IABITS      	64
-#endif
-#endif
-
-
 
 /*
  *  If not defined in systype.h, disable it here.
