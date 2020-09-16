@@ -28,25 +28,9 @@
 
 
 *	this program takes input file in minimal token form and produces assembly
-*	code for intel x64 processor. the program obtains the name of the file
-*	to be translated from the command line string in host(0).
+*	code for arm processor using the 32-bit arm comands.
 
 *	options relating to the processing of comments can be changed by modifying the source.
-
-*	In addition to the minimal token file, the program requires the name
-*	of a "machine definition file" that contains code specific to a
-*	particular 80386 assembler.
-
-*	you may also specify option flags on the command line to control the
-*	code generation.  the following flags are processed:
-
-*	    compress	    generate tabs rather than spaces in output file
-*	    comments	    retain full-line and end-of-line comments
-
-*	the variable arch is set equal to the uppercase name of the machine
-*	being processed. specific tests upon this variable are discouraged,
-*	as all machine-dependent code should be placed in the machine-definition
-*	file if possible.
 
 *	in addition to the normal minimal register complement, one scratch work
 *	register, w0 is defined. see the register map below for specific allocations.
@@ -141,6 +125,21 @@ chktrace.1
 							:(return)
 
 chktrace_end
+-sttl	const	return value of symbol defined in definition section
+	define('const(iarg)val')			:(const_end)
+
+*	If the argument is a symbol defined in the definition section then
+*	return the symbol expressed as an immediate constant.
+*	If the argument is an integer, return the integer as an immediate constant.
+
+const
+
+	const = convert(iarg,'integer) '#' convert(iarg,'integer') :s(return)
+
+	ne(type(iarg),2) error('request for undefined symbol: ' text(iarg))	:(return)
+	const = '#' text(iarg)				:(return)
+
+const_end
 -stitl	flush
 	define('flush()')				:(flush_end)
 
@@ -148,17 +147,10 @@ chktrace_end
 
 flush
 
-** This should be no-op since genaop, genbop and gencop used inx x65 implementation no longer needed. 
-
-							:(return)
-
-*	here if some statements to emit, so output single 'null' statement 
-*	to get label and comment field right.
+*	output the current statement
 
 	label = thislabel =
 	outstmt(tstmt())				:(return)
-
-flush_0
 
 flush_end
 -stitl genz
@@ -210,8 +202,6 @@ comregs_end
 *	the error are written to the listing (including error chain), and
 *	the appropriate counts are updated.
 
-
-
 	outfile = filenami ': error: ' text
 	outfile = rpad(lpad(input_lines,6),size(filenami) -1) ' | ' thisline
 	lasterror = output_lines
@@ -221,9 +211,10 @@ comregs_end
 
 error_end
 -stitl	fetch(argnum)
-	define('fetch(reg,iarg)iarg,t1,t2')		:(fetch_end)
+	define('fetch(reg,iarg,kind)op,base,offset')	:(fetch_end)
 
 *	get argument to register _reg_ and return that register.
+*	fetch word unless _kind_ is not null, in which case fetch character
 
 fetch
 
@@ -235,9 +226,11 @@ fetch
 *	opn	03,04,07-15		one word integer, e.g., an address
 *	opv	03,04,0-15,18-22	one word integer value	
 *	addr	01-05			address
-*
 
-	convert(iarg,'integer') genop('ldr',reg,const(convert(iarg,'integer'))) :s(return)
+
+	op = (differ(kind) 'ldrb', 'ldr')
+
+	convert(iarg,'integer') genop(op,reg,const(convert(iarg,'integer'))) :s(return)
 *	iarg = eq(argnum,1) arg1
 *	iarg = eq(argnum,2) arg2
 *	iarg = eq(argnum,3) arg3
@@ -258,64 +251,60 @@ fetch_ok
 fetch_3
 fetch_4
 
-*  wlbl, clbl
+*	wlbl, clbl
 
-	genop('ldr',reg,'=' text(arg1))
-	genop('ldr','[' reg ']')
+	genop(op,reg,'=' text(arg1))
+	genop(op,'[' reg ']')
    								:(return)
 fetch_7
 fetch_8
 
-*  w,x, map register name
+*	w,x, map register name
 
-	genop('mov',
-	fetch = text(iarg)					:(return)
+	genop('mov',reg,text(iarg))				:(return)
 
 fetch_9
 
-*  (x), register indirect
+*	(x), register indirect
 
-	genop('ldr',reg, '[' text(iarg) ']')
+	genop(op,reg, '[' text(iarg) ']')
 								:(return)
 
 fetch_10
 
-*  (x)+, register indirect, post increment
+*	(x)+, register indirect, post increment
 
-	ident(text(iarg),'(xs)+) genop('pop','{' reg '})	:s(return)
-
-	genop('ldr',reg, '[' text(iarg), const(cfp_b)])
-
+*	ident(text(iarg),'(xs)+) genop('pop','{' reg '})	:s(return)
+	
+	offset = (ident(kind),'cfp_b',1)
+	genop(op,reg, '[' base  '],' const(offset))		:(return)
 
 fetch_11
 
 *	-(x), register indirect, pre decrement
 
-	genop('ldr',reg, '[' text(iarg), const(-cfp_b)])
-
-								:(fetch_done)
+	offset = (ident(kind),'cfp_b',1)
+	genop(op,reg, '[' base ','  const(offset) ']!')		:(return)
 
 fetch_12
 fetch_13
 
-*  int(x)
-*  dlbl(x)
+*	int(x)
+*	dlbl(x)
 
-
-	text(iarg) break('(') . t1 '(' len(2) . t2
-	fetch = '[(cfp_b*' t1 ')+' t2 ']':(return)
+	text(iarg) break('(') . offset '(' len(2) . base
+	genop(op,reg,'[' base, ',' const('cfp_b*' offset) ']')	:(return) 
 
 fetch_14
 fetch_15
 
 *	name(x), where name is in working section
 
-	text(iarg) break('(') . t1 '(' len(2) . t2
-	fetch = '[' t1 '+'  t2 ']'	:(return)
+	text(iarg) break('(') . offset '(' len(2) . base
+	genop(op,reg,'[' base, ',' const(offset) ']')		:(return) 
 
 fetch_done
 
-								:(return)
 fetch_end
 -stitl genlab()
 
@@ -335,8 +324,7 @@ genlab_end
 
 genopl
 
-	cstmts[cstmts.n = cstmts.n + 1] =
-.		tstmt(gopl,gopc,gop1,gop2,gop3)		:(return)
+	outstmt(tstmt(gopl,gopc,gop1,gop2,gop3))	:(return)
 
 genopl_end
 -stitl genop(gopc,gop1,gop2,gop3)
@@ -349,301 +337,15 @@ genop
 	genopl(,gopc,gop1,gop2,gop3)			:(return)
 
 genop_end
--stitl	isreg(iarg)
-	define('isreg(iarg)')				:(isreg_end)
-
-*	succeeds if *iarg* is a minimal register name, fails otherwise.
-isreg
-
-* output = 'isreg datatype ' datatype(iarg) ' <' datatype(iarg) '>'
-	ge(type(iarg),7) le(type(iarg),8)		:f(freturn)s(return)
-
-isreg_end
--stitl initmap(str)
-	define('initmap(str),index,val')		:(initmap.end)
-
-*	this routine is called to initialize a table from a string of
-*	index/value pairs.
-
-initmap
-
-	initmap = table(size(str))
-
-initmap.1
-
-	str	(break('[') $ index len(1) break(']') $ val len(1)) =
-.							:f(return)
-	val	= convert( val,'integer' )
-	val	= ident(val,lastval) lastval
-	lastval = val
-	initmap[index] = val				:(initmap.1)
-
-initmap.end
--stitl include(filename)
-
-*	copy contents of *filename*
-
-	define('include(filename)includefile,line')	:(include.end)
-
-include
-
-	input(.includefile,4,filename)			:s(include.next)
-	error('cannot open include file ' filename)	:(return)
-
-include.next
-
-	outfile = includefile				:s(include.next)
-	endfile(4)					:(return)
-
-include.end
--stitl	jump	jump if condition met
-	define('jump(cond,iarg)')				:(fetch_end)
-
-*	get argument to register _reg_ and return that register.
-
-jump
-
-*	val	01,02			predefined value
-*	reg	07,08			register
-*	opc	09,10,11		character
-*	ops	03,04,09,12-15		memory reference
-*	opw	03,04,08-15		full word
-*	opn	03,04,07-15		one word integer, e.g., an address
-*	opv	03,04,0-15,18-22	one word integer value	
-*	addr	01-05			address
-*
-
-
-* output = 'fetch text <' text(iarg) '>  type <' type(iarg) '>'
-*	eq(type(iarg),3)					:s(jump_ok)
-*	eq(type(iarg),4)					:s(jump_ok)
-*	lt(itype(iarg,7)					:s(jump_err)
-*	gt(itype(iarg,15)					:s(jump_err)
-
-jump_err
-
-	error('fetch type not valid, but is ' type(iarg)	:(freturn)
-
-jump_ok
-
-								:f($('fetch_' type(iarg)))
-jump_3
-jump_4
-
-*  wlbl, clbl
-
-	genop('adr',w0,text(iarg))
-	genop('mov',w0, '[' w0 ']')				:(jump_done)
-jump_7
-jump_8
-
-*  w,x, map register name
-
-	genop('mov',w0,iarg)					:(jump_done)
-
-jump_9
-
-*  (x), register indirect
-
-	fetch(w0,iarg)
-								:(jump_done)
-
-jump_10
-jump_11
-
-*	(x)+, register indirect, post increment
-*	-(x), register indirect, pre decrement
-
-	fetch(w0,iarg)						:(jump_done)	
-
-jump_12
-jump_13
-
-*  int(x)
-*  dlbl(x)
-
-
-	text(iarg) break('(') . t1 '(' len(2) . t2
-	genop('add',w0,t2,const('cfp_b*' t1))
-	genop('mov',w0, '[' w0 ']')				:(jump_done)
-
-jump_14
-jump_15
-
-*	name(x), where name is in working section
-
-	text(iarg) break('(') . t1 '(' len(2) . t2
-	genop('add',w0,t2,const('cfp_b*' t1))
-	genop('mov',w0, '[' w0 ']')				:(jump_done)
-
-jump_done
-
-	genop('mov' cond, pc, wo)				:(return)
-
-jump_end
--stitl prcent(n)
-	define('prcent(n)')				:(prcent_end)
-
-prcent prcent = 'prc_+cfp_b*' ( n - 1)			:(return)
-
-prcent_end
--stitl	report(num,text)
-
-	define('report(num,text)')			:(report_end)
-
-report
-
-	output = rpad('	 ' text ':',30) num			:(return)
-
-report_end
--stitl outstmt(ostmt)label,opcode,op1,op2,op3,comment,line)
-	define('outstmt(ostmt)line,label,opcode,op1,op2,op3,comment,t,stmtout')
-.			:(outstmt_end)
-
-*	outstmt is used to send a target statement to the output file.
-
-outstmt label = t.label(ostmt)
-
-*	clear label if definition already emitted
-
-	label = ident(label, lastlabel)
-
-outstmt1
-
-*	attach source comment to first generated instruction
-
-	differ(comment)					:s(outstmt2)
-	ident(tcomment)					:s(outstmt2)
-	comment = tcomment; tcomment =
-
-outstmt2
-
-	opcode = t.opc(ostmt)
-	op1 = t.op1(ostmt)
-	op2 = t.op2(ostmt)
-	op3 = t.op3(ostmt)
-	differ(compress)				:s(outstmt3)
-	line = rpad( rpad(label,7) ' ' rpad(opcode,4) ' '
-.		  (ident(op1), op1
-.			(ident(op2), ',' op2
-.				(ident(op3), ',' op3))) ,27)
-							:(outstmt4)
-outstmt3
-
-	line = label tab opcode tab
-.		  (ident(op1), op1
-.		    (ident(op2), ',' op2
-.		      (ident(op3), ',' op3)))
-
-outstmt4
-
-	line = trim(line)
-	line = le(size(line),48) rpad(line,48) '; ' comment:s(outstmt5)
-	line = le(size(line),56) rpad(line,56) '; ' comment:s(outstmt5)
-	line = line '; ' comment
-
-outstmt5
-**
-**	send text to output file if not null.
-
-*	     line = replace(trim(line),'$','_')
-
-	eq(z_trace)					:s(outstmt6)
-
-*	     here if trace code desired for executable instructions
-
-	chktrace()
-
-outstmt6
-
-* output =  line
-	outfile = line
-	ntarget = ntarget + 1
-	output_lines = output_lines + 1
-
-*	record code labels in table with delimiter removed.
-	(ge(sectnow,5) differ(thislabel))		:f(return)
-	label ? break(':') . label			:f(return)
-	labtab<label> = output_lines			:(return)
-
-outstmt_end
--stitl prsarg(iarg)
-	define('prsarg(iarg)l1,l2')			:(prsarg_end)
-prsarg
-
-	prsarg = minarg(0)
-	iarg break(',') . l1 ',' rem . l2		:f(return)
-	prsarg = minarg(convert(l1,'integer'),l2)	:(return)
-
-prsarg_end
--stitl readline()
-	define('readline()')				:(readline_end)
-
-*	this routine returns the next statement line in the input lex file
-*	to the caller.	it never fails.	 if there is no more input,
-*	then a minimal end statement is returned.
-*	comments are passed through to the output file directly.
-
-readline
-
-	readline = infile				:f(readline_eof)
-
-	input_lines  = input_lines + 1
-	ident( readline )				:f(readline_2)
-
-	outfile = readline
-	output_lines = output_lines + 1			:(readline)
-
-readline_2
-* output = readline
-	lne(substr(readline,1,1 ),'*' )			:s(return)
-
-*	Here if comment.
-
-	z_skip = ident(readline,'*z+') 0		:s(readline)
-	z_skip = ident(readline,'*z-') 1		:s(readline)
-
-	outfile = ';' substr(readline,2)
-	output_lines = output_lines + 1			:(readline)
-
-readline_eof
-
-   readline = '	       end'				:(return)
-
-readline_end
-	define('skip_init(s)on,off')			:(skip_init_end)
-
-*	initialize the skip table used for instruction trace.
-
-skip_init	s break(':') . on ':' rem . off		:f(return)
-
-	skip_on[on] = 1
-	skip_off[off] = 1				:(return)
-
-skip_init_end
--sttl	const	return value of symbol defined in definition section
-	define('const(iarg)val')			:(const_end)
-
-*	If the argument is a symbol defined in the definition section then
-*	return the symbol expressed as an immediate constant.
-*	If the argument is an integer, return the integer as an immediate constant.
-
-const
-
-	const = convert(iarg,'integer) '#' convert(iarg,'integer') :s(return)
-
-	ne(type(iarg),2) error('request for undefined symbol: ' text(iarg))	:(return)
-	const = '#' text(iarg)				:(return)
-
-const_end
 -sttl	init - initialize global constants and variables
 	define('init()')				:(init_end)
 
+*	initalize for translation
 init
 
 *	revision history:
 
-	version = 'v1.12'
+	version = 'v1.0'
 
 *	keyword initialization
 
@@ -775,15 +477,15 @@ config_done
 *	skip_init('prtarg1:prtmi')
 *	skip_init('srpl5:srpl8')
 
-
-
 *	data structures
 
-*	minarg represents an argument to minimal instruction. *type* is the
+*	minarg represents an argument to minimal instruction. _type_ is the
 *	argument's type as operands format of the minimal specification.
-*	*text* is the actual text of the argument.
+*	_text_ is the actual text of the argument.
 
 	data('minarg(type,text)')
+
+*	following instances of minarg used for character operations.
 
 	arg_xl = minarg(7,'xl')
 	arg_xli = minarg(9,'(xl)')
@@ -799,13 +501,11 @@ config_done
 
 	sectnow = 0
 
-*	ppm_cases gives count of ppm/err statments that must follow call to
-*	a procedure
+*	ppm_cases gives count of ppm/err statments that must follow call to a procedure
 
 	ppm_cases = table(50,,0)
 
-
-	 p.comregs = break(letters) . pre span(letters) . word
+	p.comregs = break(letters) . pre span(letters) . word
 
 *	exttab has entry for external procedures
 
@@ -815,21 +515,9 @@ config_done
 
 	labtab = table(500)
 
-*	for each statement, code in generated into three
-*	arrays of statements:
-
-*	astmts: statements after opcode (()+, etc.)
-*	bstmts: statements before code (-(), etc)
-*	cstmts: generated code proper
-
-	astmts = array(20,'')
-	bstmts = array(10,'')
-	cstmts = array(20,'')
-
 *	genlabels is count of generated labels (cf. genlab)
 
 	genlabels = 0
-
 
 *	initialize variables
 
@@ -879,18 +567,8 @@ config_done
 .	optim.tab<"shr"> = optim.tab<"shl"> = optim.tab<"inc"> = 
 .	optim.tab<"dec"> = 1
 
-
-*	ismem is a map from operand type that is nonzero if the operand type
-*	is a memory reference.
-
-	ismem = array(30,0)
-
-	ismem<3> = ismem<4> = ismem<5> = ismem<9> = ismem<10> = 
-.	ismem<11> = ismem<12> = ismem<13> = ismem<14>  = ismem<15> = 1
-
-*	other definitions that are dependent upon things defined in the
-*	machine definition file, and cannot be built until after the definition
-*	file has been read in.
+*	other definitions that are dependent upon things defined in the machine definition file,
+*	and cannot be built until after the definition file has been read in.
 
 *	p.outstmt examines output lines for certain types of comment contructions
 
@@ -898,7 +576,6 @@ config_done
 	p.outstmt = (break(fillc) . label span(fillc)) . leader
 +			comment.delim rem . comment
 	p.alltabs = span(tab) rpos(0)
-
 
 	filenami = 'sbl.lex'
 	input(.infile,1,filenami)			:s(inputok)
@@ -944,11 +621,9 @@ pubend
 
 nopub
 
-
 *	get file name
 
-
-*  get definition file name following token file name, and flags.
+*	get definition file name following token file name, and flags.
 
 *	fileprefix ? break(';:') . fileprefix len(1) 
 *.	(break(';:') | rem) . target
@@ -957,11 +632,10 @@ nopub
 *	$replace(target,lcase,ucase) = 1
 
 *	parse and display flags, setting each one's name to non-null value (1).
-
 							:(flgs.skip)
 flgs
 
-   flags ? ((len(1) break(';				:')) . flag len(1)) |
+	flags ? ((len(1) break(';				:')) . flag len(1)) |
 .	 ((len(1) rem) . flag) =			:f(flgs2)
 	flag = replace(flag,lcase,ucase)
 	output = "  flag				: " flag
@@ -970,9 +644,264 @@ flgs
 flgs.skip
 
 flgs2
-
 							:(return)
 init_end
+-stitl	isreg(iarg)
+	define('isreg(iarg)')				:(isreg_end)
+
+*	succeeds if _iarg_ is a minimal register name, fails otherwise.
+isreg
+
+* output = 'isreg datatype ' datatype(iarg) ' <' datatype(iarg) '>'
+	ge(type(iarg),7) le(type(iarg),8)		:f(freturn)s(return)
+
+isreg_end
+-stitl initmap(str)
+	define('initmap(str),index,val')		:(initmap_end)
+
+*	this routine is called to initialize a table from a string of index/value pairs.
+
+initmap
+
+	initmap = table(size(str))
+
+initmap.1
+
+	str	(break('[') $ index len(1) break(']') $ val len(1)) = :f(return)
+	val	= ident(val,lastval) lastval
+	lastval = val
+	initmap[index] = val				:(initmap.1)
+
+initmap_end
+-stitl include(filename)
+
+*	copy contents of _filename_ to the output file.
+
+	define('include(filename)includefile,line')	:(include.end)
+
+include
+
+	input(.includefile,4,filename)			:s(include.next)
+	error('cannot open include file ' filename)	:(return)
+
+include.next
+
+	outfile = includefile				:s(include.next)
+	endfile(4)					:(return)
+
+include.end
+-stitl	jump	jump if condition met
+	define('jump(cond,iarg)reg,offset')		:(jump_end)
+
+*	jump to address given by _iarg_ if condition _cond_ is true.
+*	Jump is effected by moving the desired address to the program counter PC.
+
+jump
+
+*	val	01,02			predefined value
+*	reg	07,08			register
+*	opc	09,10,11		character
+*	ops	03,04,09,12-15		memory reference
+*	opw	03,04,08-15		full word
+*	opn	03,04,07-15		one word integer, e.g., an address
+*	opv	03,04,0-15,18-22	one word integer value	
+*	addr	01-05			address
+*
+jump_err
+
+	error('fetch type not valid, but is ' type(iarg)	:(freturn)
+
+jump_ok
+
+							:f($('jump' type(iarg)))
+jump_3
+jump_4
+
+*  wlbl, clbl
+
+	genop('adr' cond,w0,text(iarg))
+	genop('mov' cond,pc,w0)				:(return)
+jump_7
+jump_8
+
+*  w,x, map register name
+
+	genop('mov' cond, pc, text(iarg))		:(return)
+
+jump_9
+
+*  (x), register indirect
+
+	fetch(w0,iarg)
+	genop('mov' cond, pc, w0)			:(return)
+
+jump_10
+jump_11
+
+*	(x)+, register indirect, post increment
+*	-(x), register indirect, pre decrement
+
+	fetch(w0,iarg)	
+	genop('mov' cond, pc, '[' w0 ']')		:(return)	
+
+jump_12
+jump_13
+
+*	int(x)
+*	dlbl(x)
+
+	fetch(w0,iarg)
+	genop('mov' cond, pc, '[' w0 ']')		:(return)
+
+jump_15
+
+*	name(x), where name is in working section
+
+	fetch(w0,iarg)
+	genop('mov' cond,pc,'[' w0 ']')			:(return)
+
+jump_end
+-stitl prcent(n)
+	define('prcent(n)')				:(prcent_end)
+
+prcent prcent = 'prc_+cfp_b*' ( n - 1)			:(return)
+
+prcent_end
+-stitl	report(num,text)
+
+	define('report(num,text)')			:(report_end)
+
+report
+
+	output = rpad('	 ' text ':',30) num		:(return)
+
+report_end
+-stitl outstmt(ostmt)label,opcode,op1,op2,op3,comment,line)
+	define('outstmt(ostmt)line,label,opcode,op1,op2,op3,comment,t,stmtout')
+.			:(outstmt_end)
+
+*	outstmt is used to send a target statement to the output file.
+
+outstmt 
+
+*	clear label if definition already emitted
+
+	label = t.label(ostmt)
+	label = ident(label, lastlabel)
+
+outstmt1
+
+*	attach source comment to first generated instruction
+
+	differ(comment)					:s(outstmt2)
+	ident(tcomment)					:s(outstmt2)
+	comment = tcomment; tcomment =
+
+outstmt2
+
+	opcode = t.opc(ostmt)
+	op1 = t.op1(ostmt)
+	op2 = t.op2(ostmt)
+	op3 = t.op3(ostmt)
+	differ(compress)				:s(outstmt3)
+	line = rpad( rpad(label,7) ' ' rpad(opcode,4) ' '
+.		  (ident(op1), op1
+.			(ident(op2), ',' op2
+.				(ident(op3), ',' op3))) ,27)
+							:(outstmt4)
+outstmt3
+
+	line = label tab opcode tab
+.		  (ident(op1), op1
+.		    (ident(op2), ',' op2
+.		      (ident(op3), ',' op3)))
+
+outstmt4
+
+	line = trim(line)
+	line = le(size(line),48) rpad(line,48) '; ' comment:s(outstmt5)
+	line = le(size(line),56) rpad(line,56) '; ' comment:s(outstmt5)
+	line = line '; ' comment
+
+outstmt5
+**
+**	send text to output file if not null.
+
+*	     line = replace(trim(line),'$','_')
+
+	eq(z_trace)					:s(outstmt6)
+
+*	     here if trace code desired for executable instructions
+
+	chktrace()
+
+outstmt6
+
+* output =  line
+	outfile = line
+	ntarget = ntarget + 1
+	output_lines = output_lines + 1
+
+*	record code labels in table with delimiter removed.
+	(ge(sectnow,5) differ(thislabel))		:f(return)
+	label ? break(':') . label			:f(return)
+	labtab<label> = output_lines			:(return)
+
+outstmt_end
+-stitl prsarg(iarg)
+	define('prsarg(iarg)l1,l2')			:(prsarg_end)
+prsarg
+
+	prsarg = minarg(0)
+	iarg break(',') . l1 ',' rem . l2		:f(return)
+	prsarg = minarg(convert(l1,'integer'),l2)	:(return)
+
+prsarg_end
+-stitl readline()
+	define('readline()')				:(readline_end)
+
+*	this routine returns the next statement line in the input lex file
+*	to the caller.	it never fails.	 if there is no more input,
+*	then a minimal end statement is returned.
+*	comments are passed through to the output file directly.
+
+readline
+
+	readline = infile				:f(readline_eof)
+
+	input_lines  = input_lines + 1
+	ident( readline )				:f(readline_2)
+
+	outfile = readline
+	output_lines = output_lines + 1			:(readline)
+
+readline_2
+* output = readline
+	lne(substr(readline,1,1 ),'*' )			:s(return)
+
+*	Here if comment.
+
+	z_skip = ident(readline,'*z+') 0		:s(readline)
+	z_skip = ident(readline,'*z-') 1		:s(readline)
+
+	outfile = ';' substr(readline,2)
+	output_lines = output_lines + 1			:(readline)
+
+readline_eof
+
+   readline = '	       end'				:(return)
+
+readline_end
+	define('skip_init(s)on,off')			:(skip_init_end)
+
+*	initialize the skip table used for instruction trace.
+
+skip_init	s break(':') . on ':' rem . off		:f(return)
+
+	skip_on[on] = 1
+	skip_off[off] = 1				:(return)
+
+skip_init_end
 -stitl main program
 
 *	here follows the driver code for the "main" program.
@@ -981,16 +910,13 @@ init_end
 
 *	loop until program exits via g_end
 
-*	opnext is invoked to initiate processing of the next line from
-*	readline_
-*	after doing this, opnext branches to the generator routine indicated
-*	for this opcode if there is one.
+*	opnext is invoked to initiate processing of the next line from readline_. After doing this,
+*	opnext branches to the generator routine indicated for this opcode if there is one.
 
-*	the generators all have entry points beginning with "g_",
-*	and can be considered a logical extension of the opnext routine.
-*	the generators have the choice of branching back to dsgen to cause
-*	the thisstmt plex to be sent to outstmt, or or branching to opnext,
-*	in which case the generator must output all needed code itself.
+*	the generators all have entry points beginning with "g_", and can be considered a logical
+*	extension of the opnext routine. the generators have the choice of branching back to cause
+*	the thisstmt plex to be sent to outstmt, or or branching to opnext, in which case the generator
+*	must output all needed code itself.
 
 *	the generators are listed in a separate section below.
 
@@ -1012,8 +938,8 @@ opnext
 
 *	append ':' after label if in code or data.
 
-*	output label of executable instruction immediately if there is one,
-*	as it simplifies later processing, especially for tracing_
+*	output label of executable instruction immediately if there is one, as it simplifies later
+*	processing, especially for tracing_
 
 	ident(inlabel)					:s(opnext.1)
 	thislabel = inlabel (differ(inlabel) ge(sectnow,3) ':',)
@@ -1021,9 +947,6 @@ opnext
 *	keep the label as is is not in executable code
 
 	lt(sectnow,5)					:s(opnext.1)
-
-*	here if in code, so output label now
-*	defer label processing for ent to allow emission of alignment ops for x86.
 
 	ident(incode,'ent')				:s(opnext.1)
 	outfile = thislabel
@@ -1043,8 +966,7 @@ opnext.1
 	arg1 = prsarg(iarg1)
 	arg2 = prsarg(iarg2)
 	arg3 = prsarg(iarg3)
-	tcomment = comregs(incomment) '} ' incode ' ' text(arg1) ' '
-.		text(arg2) ' ' text(arg3)
+	tcomment = comregs(incomment) '} ' incode ' ' text(arg1) ' ' text(arg2) ' ' text(arg3)
 	argerrs = 0
 * output = 'bad incode ' incode
 							:($('g_' incode))
@@ -1200,23 +1122,24 @@ g_ent
 *	entry point is implemented as full word.
 
 
-	t1 = text(arg1)
-	genop('.long',text(arg1))
+	t1 = i.text(i1)
+	outfile = tab 'align' tab '2'
+	differ(t1)					:s(g_ent.1)
+	outfile = tab 'nop'
+							:(g_ent.2)
+g_ent.1
 
-							:(opdone)
+	outfile = tab 'db' tab	t1
 
+g_ent.2
 
 	outlines = outlines + 2
 	genopl(thislabel)
-
-*	note that want to attach label to last instruction
-*	     t1 = cstmts[cstmts.n]
-*	     t.label(t1) = tlabel
-*	     cstmts[cstmts.n] = t1
+	
 *	here to see if want label made public
 
 	thislabel ? rtab(1) . thislabel '		:'
-*	(differ(pubtab[thislabel]), differ(debug)) genop('.globl',thislabel)
+*	(differ(pubtab[thislabel]), differ(debug)) genop('global',thislabel)
 	thislabel =					:(opdone)
 
 *	*   1.7	 BRI   _opn_	  branch indirect
@@ -2362,11 +2285,7 @@ g_psc
 
 g_lch
 
-	eq(type(arg2),09) genop('ldrb', text(arg1),  '[' substr(arg2,2,2) ']')
-	eq(type(arg2),10) genop('ldrb', text(arg1),  '[' substr(arg2,2,2), const(-1) ']!');* post indexed
-	eq(type(arg2),11) genop('ldrb', text(arg1),  '[' substr(arg2,2,2), const(1) ']!');* pre indexed
-							:(opdone)
-
+	fetch(text(arg1),arg2,'char')			:(opdone)
 
 *	*   6.4	 SCH  _reg,opc_
 
@@ -2377,10 +2296,7 @@ g_lch
 
 g_sch
 
-	eq(type(arg2),09) genop('strb', text(arg1),  '[' substr(arg2,2,2) ']')
-	eq(type(arg2),10) genop('strb', text(arg1),  '[' substr(arg2,2,2), const(-1) ']!');* post indexed
-	eq(type(arg2),11) genop('strb', text(arg1),  '[' substr(arg2,2,2), const(1) ']!');* pre indexed
-							:(opdone)
+	store(text(arg1),arg2,'char')			:(opdone)
 
 *	*   6.5	 CSC  _x_
 
