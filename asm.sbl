@@ -230,12 +230,9 @@ fetch
 
 	op = (differ(kind) 'ldrb', 'ldr')
 
-	convert(iarg,'integer') genop(op,reg,const(convert(iarg,'integer'))) :s(return)
-*	iarg = eq(argnum,1) arg1
-*	iarg = eq(argnum,2) arg2
-*	iarg = eq(argnum,3) arg3
-
 * output = 'fetch text <' text(iarg) '>  type <' type(iarg) '>'
+	eq(type(iarg),1)					:s(fetch_ok)
+	eq(type(iarg),2)					:s(fetch_ok)
 	eq(type(iarg),3)					:s(fetch_ok)
 	eq(type(iarg),4)					:s(fetch_ok)
 	lt(itype(iarg,7)					:s(fetch_err)
@@ -248,6 +245,11 @@ fetch_err
 fetch_ok
 
 								:f($('fetch_' type(iarg)))
+fetch_1
+fetch_2
+
+	genop(op, '=' text(iarg))				:(return)
+
 fetch_3
 fetch_4
 
@@ -314,7 +316,7 @@ fetch_end
 
 genlab
 
-	genlab = minarg(,6,'_l' lpad(genlabels = genlabels + 1,4,'0')):(return)
+	genlab = '_l' lpad(genlabels = genlabels + 1,4,'0') :(return)
 
 genlab_end
 -stitl genopl(gopl,gopc,gop1,gop2,gop3)
@@ -407,7 +409,7 @@ init
 
 *	rcode is used to hold return code value from subroutine call.
 
-	rcode = 'w0'
+	rcode = '_rc_'
 
 * symbolic target assignments
 
@@ -691,7 +693,7 @@ include.next
 
 include.end
 -stitl	jump	jump if condition met
-	define('jump(cond,iarg)reg,offset')		:(jump_end)
+	define('jump(cond,iarg)base,lbl,reg,offset')	:(jump_end)
 
 *	jump to address given by _iarg_ if condition _cond_ is true.
 *	Jump is effected by moving the desired address to the program counter PC.
@@ -706,20 +708,21 @@ jump
 *	opn	03,04,07-15		one word integer, e.g., an address
 *	opv	03,04,0-15,18-22	one word integer value	
 *	addr	01-05			address
-*
+
 jump_err
 
 	error('fetch type not valid, but is ' type(iarg)	:(freturn)
 
 jump_ok
 
+	lbl = (ident(datatype(iarg),'minarg') text(iarg), iarg)
 							:f($('jump' type(iarg)))
 jump_3
 jump_4
 
 *  wlbl, clbl
 
-	genop('adr' cond,w0,text(iarg))
+	genop('adr' cond,w0,lbl)
 	genop('mov' cond,pc,w0)				:(return)
 jump_7
 jump_8
@@ -983,12 +986,14 @@ ds.typerr
 	error('operand type zero')			:(opnext)
 -stitl generators
 
+* GENERATORS
+
 *	### 1-	Basic Instruction Set
 
-*	*   1.1	 MOV   _opn,opv_  move one word value
+*	1.1	 MOV   _opn,opv_  move one word value
 
-*	MOV causes the value of operand _opv_ to be set as the new contents
-*	of operand location _opn_. In the case where _opn_ is not an index
+*	MOV causes the value of operand _opn_ to be set as the new contents
+*	of operand location _opv_. In the case where _opn_ is not an index
 *	register, any value which can normally occupy a memory word
 *	(including a part of a multiword real or integer value) can be
 *	transferred using MOV. If the target location _opn_ is an index register,
@@ -999,7 +1004,7 @@ g_mov
 
 	reg = (isreg(arg1) text(arg1),'')
 	isreg(arg1) isreg(arg2) genop('mov',text(arg1),text(arg2)) :s(opdone)
-	ident(text(arg1),'-(xs)')			:s(g_mov_push)
+*	ident(text(arg1),'-(xs)')			:s(g_mov_push)
 	differ(reg) fetch(reg,arg2)			:s(opdone)
 	fetch(w0,arg2)
 	store(w0,arg1)					:(opdone)
@@ -1019,57 +1024,40 @@ g_brn
 
 	jump('AL',arg1)					:(opdone)
 
-*	* 1.3  BSW  _x,val,plbl_    branch on switch value
+*	1.3  BSW  _x,val,plbl_    branch on switch value
 
 *	BSW IFF,ESW provide a capability for a switched branch similar to a
 *	fortran computed goto.  The _val_ on the BSW instruction is the
 *	maximum number of branches. the value in x ranges from zero up to
 *	but not including this maximum. each IFF provides a branch.
 
-*	_val_ must be less than that given on the bsw and control goes to
+*	_val_ must be less than that given on the BSW and control goes to
 *	_plbl_ if the value in x matches.  If the value in x does not correspond
 *	to any of the IFF entries, then control passes to the _plbl_ on the BSW.
 
-*	The  _plbl_ operand may be omitted if there are no values missing
-*	from the list.
+*	The  _plbl_ operand may be omitted if there are no values missing from the list.
 
-*	IFF and ESW may only be used in this context.  Execution of BSW
-*	may destroy the contents of _x_.
-
-*	The IFF entries may be in any order and since a translator may thus need
-*	to store and sort them, the comment field is restricted in length (sec 11)
+*	IFF and ESW may only be used in this context. Execution of BSW may destroy the contents of _x_.
 
 g_bsw
 
-	fetch(w1,arg1)
-	genop('mov',w2,const(arg2))
-	t2 = genlab()
 	z_suspend = 1
+
+	fetch(w1,arg1)
+	fetch(w2,arg2)
+	t2 = genlab()
 	ident(text(arg3))				:s(g_bsw1)
 
 *	Here if _plbl_, so generate branch to it if out or range
-	genop('cmp',w1,const(arg2))
-	genop('jge',text(arg3))
-
-*  here after default case.
+	genop('cmp',w1,w2)
+	jump('ge',arg3)
 
 g_bsw1
 
-*	Use TBH instruction:
-*		tbh PC, w1, lsl #1
-*	where
-*		Rn is the base register for table. Use PC if table follows this instruction.
-*
-*		r1 is integer index. The offset into the table is this value, shifted to
-*		get halfword offset.
-*		
-*		The first case follows this instruction.
+*  here after default case check (if needed).
 
-	genop('tbh','[' PC ',' r1 ','  const(1) ']')
 
-*	tbh_label is value of PC for first entry in table
-
-	tbh_label = genlab()
+	genop('ldr',pc,'[' w1 ',' 'cfp_b*' const(text(arg2))']')
 	z_suspend = 0
 							:(opdone)
 
@@ -1081,12 +1069,12 @@ g_bsw1
 *		    ...
 *	```
 
-*	Note that the lowest IFF entry value for _val_ is always zero.
-*	The IFF statements have been sorted into the proper order by the lexical scanner.
+*	Note that the lowest IFF entry value for _val_ is always zero. The IFF statements have been
+*	sorted into the proper order by the lexical scanner.
 
 g_iff
 
-	genop('.int', '((' text(arg2) ' - ' tbh_label ')/2)')	:(opdone)
+	genop('.word', plbl)				:(opdone)
 
 
 *	* 1.5  ESW	end of branch switch table
@@ -1122,14 +1110,13 @@ g_ent
 *	entry point is implemented as full word.
 
 
-	t1 = i.text(i1)
-	outfile = tab 'align' tab '2'
-	differ(t1)					:s(g_ent.1)
-	outfile = tab 'nop'
+	genop('.align',2)
+	differ(text(arg1))				:s(g_ent.1)
+	genop(''nop')
 							:(g_ent.2)
 g_ent.1
 
-	outfile = tab 'db' tab	t1
+	genop('word',text(arg1))
 
 g_ent.2
 
@@ -1151,7 +1138,7 @@ g_ent.2
 g_bri
 
 	fetch(w1,arg1)
-	jump('al',r1)				:(opdone)
+	jump(,r1)				:(opdone)
 
 *	*   1.8	 LEI  _x_	  load entry point identification
 
@@ -1161,7 +1148,7 @@ g_bri
 g_lei
 
 	fetch(w1,arg1)
-	genop('ldr','[' w1 ', ' const(4) ']')		:(opdone)
+	genop('ldr','[' w1 ', ' const(-cfp_b) ']')	:(opdone)
 
 *	*   1.9	 JSR  _pnam_	  call procedure _pnam_
 
@@ -1178,14 +1165,14 @@ g_jsr
 	jsr_calls = jsr_calls +	 1
 	jsr_label = 'call_' jsr_calls
 	jsr_label_norm = jsr_label
+	fetch(w0,rcode)
+	genop('subs',w0,const(1))
 	genop('subs',rcode,rcode,const(1))
-	genop('stmfc,sp '!'_)
-	adr(w1,jsr_label)
-	genop('movs',PC,r1)
+	jump('pl',jsr_label_norm)
 	z_suspend = 0
 
-*	     generate branch around for ppms that will follow
-*	     take the branch if normal return (r1==0)
+*	generate branch around for ppms that will follow. Take the branch if normal return (r1==0)
+
 							:(opdone)
 
 *	*   1.10 PPM  _plbl_	  provide exit parameter
@@ -1197,7 +1184,7 @@ g_jsr
 *	```
 
 *	JSR causes control to be passed to the named procedure. _pnam_ is the label on a PRC
-*	statement elsewhere in the program section (see prc) *	or has been defined using an *exp* instruction.
+*	statement elsewhere in the program section (see prc) or has been defined using an *exp* instruction.
 
 *	The PPM exit parameters following the call give names of program locations (_plbl_-s) to
 *	which alternative EXI returns of the called procedure may pass control.
@@ -1209,7 +1196,7 @@ g_jsr
 
 g_ppm							
 
-*	PPM and ERR are handled the same way.
+*	PPM and ERR are handled the same way, so jump to g_err code.
 
 							:(g_err)
 
@@ -1227,6 +1214,7 @@ g_ppm
 
 g_prc
 
+	error('TODO g_prc)				:(opdone)
 *	generate public declaration
 *	     t1 = thislabel
 *	     t1 ? rtab(1) . t1 ':'
@@ -1250,7 +1238,8 @@ g_prc.n
 
 	genop('ldmfd', sp '!')
 	prc.count = prc.count + 1
-	genop('pop', 'm_word [' prcent(prc.count) ']')	:(opdone)
+	genop('pop',w0)
+	store(w0, prcent(prc.count))			:(opdone)
 
 *	*   1.12 EXI  _int_	  exit from procedure
 
@@ -1269,23 +1258,20 @@ g_prc.n
 
 g_exi
 
-	error('TODO exi')				:(opdone)
 	t2 = prc.type; t3 = text(arg1)
 
 *	if type r or e, and no exit parameters, just return
 
-	differ(t2,'n') eq(prc.args)	genop('ldmfd',sp '!') :s(opdone)
+	differ(t2,'n') eq(prc.args)	genop('mov',pc,lr) :s(opdone)
 	t3 = ident(t3) '0'
-	genop('adr','rcode
-	genop('mov',w0,const(+t3))
+	fetch(w0,const(+t3))
+	store(w0,rcode)
 	ident(t2,'n')					:s(g_exi.1)
-	genop('ldmfd', sp '!')				:(opdone)
+	genop('mov',pc,lr)				:(opdone)
 
 g_exi.1
 
-	error('error g_exi.1')				:(opdone)
-	genop('mov',w0, 'm_word ['  prcent(prc.count) ']' )
-	genop('jmp',w0)
+	jump(, prcent(prc.count))
 							:(opdone)
 
 *	*   1.13 ENP  define end of procedure body
@@ -1312,7 +1298,6 @@ g_err
 *	Decrement the value. if it is negative then this is normal return. otherwise, proceed, decrementing
 *	_rcode_ until it goes negative,and then take the appropriate branch.
 
-	t1 = text(arg1)
 
 *	branch to next case if rcode code still not negative.
 
@@ -1332,16 +1317,19 @@ g_ppm.loop.next
 g_ppm.loop
 
 	lab_next = genlab()
-	genop('subs',rcode,const(1))
-	jump('al',lab_next)
+	fetch(w0,rcode)
+	subs(w0,w0,const(1))
+	jump('pl',lab_next)
+
 	ident(incode,'ppm')				:s(g_ppm.loop.ppm)
 
 *	here if error exit via exi. set rcode to exit code and jump to handler with error code in rcode
 
 g_ppm.loop.err
 
-	genop('mov',rcode, const('+' t1))
-	genop('mov',PC,minarg(6,'err_'))
+	fetch(w0,const(t1))
+	store(w0,'rcode')
+	jump(,'err_')
 							:(g_ppm.loop.next)
 g_ppm.loop.ppm
 
@@ -1349,7 +1337,7 @@ g_ppm.loop.ppm
 
 	ident(text(arg1))				:s(g_ppm.2)
 	count.ppm = count.ppm + 1
-	jump('al',arg1)
+	jump(,arg1)
 							:(g_ppm.loop.next)
 
 g_ppm.2
@@ -1372,8 +1360,9 @@ g_erb
 
 *	set rcode to error code and branch to error handler
 
-	genop('mov',rcode,const(text(arg1)))
-	jump('al',minarg(6,'err_'))			:(opdone)
+	fetch(w0,const(text(arg1)))
+	store(w0,'rcode')
+	jump(,'err_')					:(opdone)
 
 g_ssl
 g_sss
@@ -1418,17 +1407,6 @@ g_ctw
 *	assume cfp_c chars per word
 
 	fetch(w1,arg1)
-	error('TODO ctw')				:(opdone)
-	t1 = getarg(arg1)
-	eq(cfp_b,cfp_c)					:s(g_ctw.1)
-
-*	here if one word per character, so just add character count
-
-	genop('add',w1,text(arg2))
-							:(opdone)
-g_ctw.1
-
-	fetch(w1,arg1)
 	genop('add',w1,const('(cfp_c - 1) + cfp_c * text(arg2)))
 	genop('lsr',w1,w1,const('log_cfp_c'))
 							:(opdone)
@@ -1441,31 +1419,31 @@ g_sec
 
 g_sec.1
 
-	genop('segment .text')
-	genop('global','sec01')
+	genop('.text')
+	genop('.global','sec01')
 	genopl('sec01' ':')				:(opdone)
 
 *	definitions section
 
 g_sec.2
 
-	genop('global','sec02')
+	genop('.global','sec02')
 	genopl('sec02' ':')				:(opdone)
 
 *  constants section
 
 g_sec.3
 
-	genop('global','sec03')
+	genop('.global','sec03')
 	genopl('sec03' ':')				:(opdone)
 
 *  working variables section
 
 g_sec.4
 
-	genop('global','esec03')
+	genop('.global','esec03')
 	genopl('esec03' '				:')
-	genop('global','sec04')
+	genop('.global','sec04')
 	genopl('sec04' ':')				:(opdone)
 
 *	here at start of program section.  If any n type procedures, put out entry-word block
@@ -1473,14 +1451,10 @@ g_sec.4
 
 g_sec.5
 
-	error('TODO g_sec.5')				:(opdone)
-
 *	emit code to indicate in code section.
 
-	genop('global','esec04')
+	genop('.global','esec04')
 	genopl('esec04' '				:')
-
-*	      (gt(prc.count1) genopl('prc$' ':','times', prc.count1 ' dd 0'))
 
 	genopl('prc_')
 	genop('.rept' tab prc_count1)
@@ -1488,17 +1462,18 @@ g_sec.5
 	genop('endr')
 
 	genop('.global','lowspmin')
-	genopl('lowspmin,'dd', '.word 0')
+	genopl('lowspmin,'.word', 0)
+
 	genop('.global','end_min_data')
-	genopl('end_min_data' ':')
+	genopl('end_min_data')
 	genop('.global','sec05')
-	genopl('sec05' ':')				:(opdone)
+	genopl('sec05')					:(opdone)
 
 *	stack overflow section.	 output exi__n tail code
 
 g_sec.6
 
-	genop('global','sec06')
+	genop('.global','sec06')
 	genopl('sec06')
 							:(opdone)
 
@@ -1507,7 +1482,7 @@ g_sec.6
 g_sec.7
 
 	error('TODO g_sec..7')				:(opdone)
-	genop('global','sec07')
+	genop('.global','sec07')
 	genopl('sec07' '				:')
 	flush()
 *	error section.	produce code to receive erb's
@@ -1516,6 +1491,8 @@ g_sec.7
 
 	n1 = max.err + 8
 	output = '  max.err ' max.err
+	genop('adr',w0,'rcode')
+	fetch(w0,'rcode')
 	genopl('err_ :','xchg',wa,'m_word [' rcode ']') :(opdone)
 
 
@@ -1564,8 +1541,7 @@ g_end.2
 	&code	= ne(nerrors) 2001
 	report(collect(), 'free words')
 							:(end)
-
-*	*   1.16 ICV   _opn_  increment value by one
+*	1.16 ICV   _opn_  increment value by one
 
 *	ICV increments the value of the operand by unity.
 
@@ -1575,25 +1551,26 @@ g_icv
 	genop('add',
 	genop('inc',w1,const(1))			:(opdone)
 
-*	*   1.17 DCV   _opn_	  decrement value by one
+*	1.17 DCV   _opn_	  decrement value by one
 
 *	DCV decrements the value of the operand by unity.
 
 g_dcv
 
-	error('TODO dcv')				:(opdone)
-	fetch(w1,arg1)
-	genop('dec',w1,const(1))			:(opdone)
+	fetch(w0,arg1)
+	genop('dec',w0,const(1))			
+	store(w0,arg1)
+							:(opdone)
 
-*	*   1.18 ZER   _opn_
+*	1.18 ZER   _opn_
 
 *	ZER is equivalent to MOV =zeroe,_opn_
 
 g_zer
 
-	fetch(w1,arg1)
-	genop('xor,w1,r1)
-	store(w1,arg1)
+	fetch(w0,arg1)
+	genop('xor,w0,w0)
+	store(w0,arg1)
 							:(opdone)
 
 *	*   1.19 MNZ   _opn_ move
@@ -1609,9 +1586,9 @@ g_mnz
 	store(argreg,xs)
 							:(opdone)
 
-*	*   1.20 SSL   _opw_	  subroutine stack load
+*	1.20 SSL   _opw_	  subroutine stack load
 
-*	*   1.21 SSS   _opw_	  subroutine stack store
+*	1.21 SSS   _opw_	  subroutine stack store
 
 *	This pair of operations is provided to make possible the use of a
 *	local stack to hold subroutine (subroutine) return links for n-type
@@ -1633,7 +1610,7 @@ g_mnz
 
 *	A private link stack is not used in the ARM implementation.
 
-*	*   1.22 RTN define start of routine
+*	1.22 RTN define start of routine
 
 
 *	However it is entered by any type of conditional or unconditional
@@ -1649,7 +1626,7 @@ g_mnz
 *	#### 2-	 Operations on One Word Integer Values (addresses)
 
 
-*	*   2.1	 ADD   _opn,opv_
+*	2.1	 ADD   _opn,opv_
 
 *	Adds  _opv_ to the value in  _opn_ and stores the result in  _opn_.  Undefined if the result
 *	exceeds CFP$L .
@@ -1657,11 +1634,11 @@ g_mnz
 g_add
 
 	fetch(w1,arg1)
-	fetch(w2,arg3)
+	fetch(w2,arg2)
 	genop('add',w1,w1,w2)
-	store(w1, 1)					:(opdone)
+	store(w1, arg1)					:(opdone)
 
-*	*   2.2	 SUB   _opn,opv_
+*	2.2	 SUB   _opn,opv_
 
 *	Subtracts _opv_ from _opn_, and stores the result in _opn_. Undefined if the result is negative.
 
@@ -1671,10 +1648,10 @@ g_sub
 	fetch(w1,arg1)
 	fetch(w2,arg3)
 	genop('sub',w1,w1,w2)
-	store(w1, 1)					:(opdone)
+	store(w1,arg1)					:(opdone)
 
 
-*	*   2.3	 ICA   _opn_
+*	2.3	 ICA   _opn_
 
 
 *	Increment address in  _opn_ *	Equivalent to ADD  _opn_,*unity
@@ -1683,9 +1660,9 @@ g_ica
 
 	fetch(w1,arg1)
 	genop('add',w1,const('cfp_b'))
-	store(w1,1)					:(opdone)
+	store(w1,arg1)					:(opdone)
 
-*	*   2.4	 DCA   _opn_
+*	2.4	 DCA   _opn_
 
 *	Decrement address in _opn_ equivalent to SUB _opn_,*unity
 
@@ -1702,49 +1679,49 @@ g_dca
 
 *	This avoids inefficient translations in some implementations.
 
-*	*   2.5	 BEQ   _opn,opv,plbl_
+*	2.5	 BEQ   _opn,opv,plbl_
 
 *	Branch to _plbl_  _opn_ eq  _opv_
 
 	cond = 'eq'					:(g_bop)
 
-*	*   2.6	 BNE   _opn,opv,plbl_
+*	2.6	 BNE   _opn,opv,plbl_
 
 *	Branch to _plbl_  _opn_ ne  _opv_
 
 	cond = 'ne'					:(g_bop)
 
-*	*   2.7	 BGT   _opn,opv,plbl_
+*	2.7	 BGT   _opn,opv,plbl_
 
 *	Branch to _plbl_  _opn_ gt  _opv_
 
 	g_bop = 'gt'					:(g_bop)
 
-*	*   2.8	 BGE   _opn,opv,plbl_
+*	2.8	 BGE   _opn,opv,plbl_
 
 	g_bop = 'ge'					:(g_bop)
 
 *	Branch to _plbl_  _opn_ ge  _opv_
 
-*	*   2.9	 BLT   _opn,opv,plbl_
+*	2.9	 BLT   _opn,opv,plbl_
 
 	g_bop = 'lt'					:(g_bop)
 
 *	Branch to _plbl_  _opn_ lt  _opv_
 
-*	*   2.10 BLE   _opn,opv,plbl_
+*	2.10 BLE   _opn,opv,plbl_
 
 	g_bop = 'le'					:(g_bop)
 
 *	Branch to _plbl_  _opn_ le  _opv_
 
-*	*   2.11 BLO   _opn,opv,plbl_
+*	2.11 BLO   _opn,opv,plbl_
 
 *	Equivalent to BLT or BLE
 
 	g_bop = 'lo'					:(g_bop)
 
-*	*   2.12 BHI   _opn,opv,plbl_
+*	2.12 BHI   _opn,opv,plbl_
 
 *	Equivalent to BGT or BGE
 
@@ -1757,11 +1734,11 @@ g_bop
 	genop('cmp',w1,w2)
 	jump(bop,arg3)					:(opdone)
 
-*	*   2.13 BNZ   _opn,plbl_
+*	2.13 BNZ   _opn,plbl_
 
 *	Equivalent to BNE  _opn_,=zeroe,_plbl_
 
-*	*   2.14 BZE   _opn,plbl_
+*	2.14 BZE   _opn,plbl_
 
 *	Equivalent to BEQ  _opn_,=zeroe,_plbl_
 
@@ -1778,7 +1755,7 @@ g_bze
 	genop('ors',w1,w1)
 	jump('eq',arg2))				:(opdone)
 
-*	*   2.15 LCT  _w,opv_
+*	2.15 LCT  _w,opv_
 
 *	Load counter for BCT
 
@@ -1803,7 +1780,7 @@ g_lct.1
 	reg = text(arg1)
 	fetch(reg,arg2)					:(opdone)
 
-*	*   2.16 BCT  _w,plbl_
+*	2.16 BCT  _w,plbl_
 
 *	Branch and count
 
@@ -1820,7 +1797,7 @@ g_bct
 	subs(reg,reg,const(1))
 	jump('ge',arg2)				:(opdone)
 
-*	*   2.17 AOV   _opn,opv,plbl_
+*	2.17 AOV   _opn,opv,plbl_
 
 *	ADD with carry test
 
@@ -1836,11 +1813,11 @@ g_aov
 	store(w1,arg1)
 	jump('cs',arg3)				:(opdone)
 o
-*	*   2.18 BEV   _opn,plbl_
+*	2.18 BEV   _opn,plbl_
 
 *	Branch even
 
-*	*   2.19 BOD   _opn,plbl_
+*	2.19 BOD   _opn,plbl_
 
 *	Branch odd
 
@@ -1874,7 +1851,7 @@ g_bod
 
 *	For now, assume CP is in register.
 
-*	*   3.1	 LCP   _reg_
+*	3.1	 LCP   _reg_
 
 *	Load code pointer register
 
@@ -1886,7 +1863,7 @@ g_lcp
 	
 	genop('mov',cp,text(arg1))			:(opdone)
 
-*	*   3.2	 SCP   _reg_
+*	3.2	 SCP   _reg_
 
 *	Store code pointer register this instruction loads the current value in the code pointer 
 *	register into reg_ (CP) is unchanged.
@@ -1895,7 +1872,7 @@ g_scp
 
 	genop('mov',text(arg1),cp)			:(opdone)
 
-*	*   3.3	 LCW  _reg_
+*	3.3	 LCW  _reg_
 
 *	Load next code word
 
@@ -1910,7 +1887,7 @@ g_lcw
 	genop('mov',text(arg1),w0)
 	genop('add',cp,cp,const(1))			:(opdone)
 
-*	*   3.4	 ICP
+*	3.4	 ICP
 
 *	Increment CP  by one word
 
@@ -1923,7 +1900,7 @@ g_icp
 
 *	#### 4-	 Operations on Signed Integer Values
 
-*	*   4.1	 LDI   _ops_
+*	4.1	 LDI   _ops_
 
 *	Load integer accumulator from  _ops_
 
@@ -1931,7 +1908,7 @@ g_ldi
 
 	fetch(ia,arg1)					:(opdone)
 
-*	*   4.2	 ADI   _ops_
+*	4.2	 ADI   _ops_
 
 *	ADD  _ops_ to integer accumulator
 
@@ -1940,16 +1917,20 @@ g_adi
 	fetch(w1,arg1)
 	genop('adds',ia,ia,w1)				:(opdone)
 
-*	*   4.3	 MLI   _ops_ 
+*	4.3	 MLI   _ops_ 
 
 *	Multiply integer accumulator by	 _ops_
 
 g_mli
 
 	fetch(w1,arg1)
-	genop('muls',wc,wc,w1)				:(opdone)
 
-*	*   4.4	 SBI   _ops_
+*	arm doesn't allow destination register and first operand register to be the same, so
+*	swap the order since multiplication is commutative.
+
+	genop('muls',wc,w1,wc)				:(opdone)
+
+*	4.4	 SBI   _ops_
 
 *	Subtract  _ops_ from int accumulator
 
@@ -1959,7 +1940,7 @@ g_sbi
 	genop('subs',ia,ia,w1)				:(opdone)
 
 
-*	*   4.5	 DVI   _ops_
+*	4.5	 DVI   _ops_
 
 *	Divide integer accumulator by  _ops_
 
@@ -1969,30 +1950,29 @@ g_dvi
 *	In ARM V7, signed and unsigned division are avilable in the THUMB instruction set, with
 *	the instructions UDIV and SDIV.
 
-	fetch(w1,arg1)
-
 *	need to check if divisor is zero, so can catch via software.
 
-	genop('sdivs',wc,r1)
-	error ('idiv todo')				:(opdone)
+	fetch(w1,arg1)
+	genop('sdivs',ia,ia,w1)				:(opdone)
 
-*	*   4.6	 RMI   _ops_
+*	4.6	 RMI   _ops_
 
 *	Set integer accumulator to `mod(intacc,_ops_)`
 
 g_rmi
 
+	error('TODO find how to do RMI remainder op in arm') :(opdone)
 	fetch(w1,arg1)
 	error ('rmi todo')				:(opdone)
 
-*	*   4.7	 STI   _ops_
+*	4.7	 STI   _ops_
 
 *	Store integer accumulator at  _ops_
 	
 g_sti
 	store(ia,fetch(ia,1))				:(opdone)
 
-*	*   4.8	 NGI
+*	4.8	 NGI
 
 *	Negate the value in the integer accumulator (change its sign)
 
@@ -2004,7 +1984,7 @@ g_ngi
 
 	genop('neg',ia,ia)				:(opdone)
 
-*	*   4.9	 INO  _plbl_
+*	4.9	 INO  _plbl_
 
 *	Jump to _plbl_ if no integer overflow
 
@@ -2012,7 +1992,7 @@ g_ino
 
 	jump('vc',arg1)					:(opdone)
 
-*	*   4.10 IOV  _plbl_
+*	4.10 IOV  _plbl_
 
 *	Jump to _plbl_ if integer overflow
 
@@ -2030,37 +2010,37 @@ g_nov
 	jump('vc',arg1)					:(opdone)
 
 
-*	*   4.11 IEQ  _plbl_
+*	4.11 IEQ  _plbl_
 
 g_ieq	cond = 'eq'					:(g_ia)
 
 *	Jump to _plbl_ if (IA) eq 0
 
-*	*   4.12 IGE  _plbl_
+*	4.12 IGE  _plbl_
 
 g_ige	cond = 'ge'					:(g_ia)
 
 *	Jump to _plbl_ if (IA) ge 0
 
-*	*   4.13 IGT  _plbl_
+*	4.13 IGT  _plbl_
 
 g_igt	cond = 'gt'					:(g_ia)
 
 *	Jump to _plbl_ if (IA) gt 0
 
-*	*   4.14 ILE  _plbl_
+*	4.14 ILE  _plbl_
 
 *	Jump to _plbl_ if (IA) le 0
 
 g_ile	cond = 'le'					:(g_ia)
 
-*	*   4.15 ILT  _plbl_
+*	4.15 ILT  _plbl_
 
 g_ilt	cond = 'lt'					:(g_ia)
 
 *	Jump to _plbl_ if (IA) lt 0
 
-*	*   4.16 INE  _plbl_
+*	4.16 INE  _plbl_
 
 *	Jump to _plbl_ if (IA) ne 0
 
@@ -2070,7 +2050,7 @@ g_ine	cond = 'ne'					:(g_ia)
 
 g_ia
 
-	genop('ors',ia,ia)
+	genop('ors',ia,ia,ia)
 	jump(cond,arg1)					:(opdone)
 
 
@@ -2079,36 +2059,36 @@ g_ia
 
 *	Real arithmetic not supported for bootstrap version
 
-*	*   5.1	 LDR   _ops_
+*	5.1	 LDR   _ops_
 
 *	Load real accumulator from  _ops_
 
-*	*   5.2	 STR   _ops_
+*	5.2	 STR   _ops_
 
 *	Store real accumulator at  _ops_
 
 
-*	*   5.3  ADR	_ops_
+*	5.3  ADR	_ops_
 
 *	ADD  _ops_ to real accumulator
 
-*	*   5.4	 SBR   _ops_
+*	5.4	 SBR   _ops_
 
 *	Subtract  _ops_ from real accumulator
 
 
-*	*   5.5	 MLR   _ops_
+*	5.5	 MLR   _ops_
 
 *	Multiply real accumulator by  _ops_
 
-*	*   5.6	 DVR   _ops_
+*	5.6	 DVR   _ops_
 
 *	Divide real accumulator by  _ops_
 
 *	If the result of any of the above operations causes underflow, the result yielded is 0.0.
 
 *	The result of any of the above operations is undefined or out of range, real overflow is set,
-*	 the contents of (RA) are undefined and the following instruction must be either ROV or RNO.
+*	the contents of (RA) are undefined and the following instruction must be either ROV or RNO.
 
 *	Particular care may be needed on target machines having distinct overflow and divide by zero conditions.
 
@@ -2120,11 +2100,12 @@ g_mlr
 g_dvr
 
 	error('real operation ' incode ' not supported for bootsrap')	:(opdone)
-*	*   5.7	 ROV  _plbl_
+
+*	5.7	 ROV  _plbl_
 
 *	Jump to _plbl_ real overflow
 
-*	*   5.8	 RNO  _plbl_
+*	5.8	 RNO  _plbl_
 
 *	Jump to _plbl_ no real overflow
 
@@ -2136,7 +2117,7 @@ g_rno
 
 	error('real operation ' incode ' not supported for bootsrap')	:(opdone)
 
-*	*   5.9 NGR
+*	5.9 NGR
 
 *	Negate real accumulator (change sign)
 
@@ -2144,28 +2125,28 @@ g_rno
 
 	error('real operation ' incode ' not supported for bootsrap')	:(opdone)
 							:(opdone)
-*	*   5.10 REQ  _plbl_
+*	5.10 REQ  _plbl_
 
 *	Jump to _plbl_ if (RA) eq 0.0
 
-*	*   5.11 RGE  _plbl_
+*	5.11 RGE  _plbl_
 
 *	Jump to _plbl_ if (RA) ge 0.0
 
-*	*   5.12 RGT  _plbl_
+*	5.12 RGT  _plbl_
 
 *	Jump to _plbl_ if (RA) gt 0.0
 
 
-*	*   5.13 RLE  _plbl_
+*	5.13 RLE  _plbl_
 
 *	Jump to _plbl_ if (RA) le 0.0
 
-*	*   5.14 RLT  _plbl_
+*	5.14 RLT  _plbl_
 
 *	Jump to _plbl_ if (RA ) lt 0.0
 
-*	*   5.15 RNE  _plbl_
+*	5.15 RNE  _plbl_
 
 *	Jump to _plbl_ if (RA) ne 0.0
 
@@ -2187,35 +2168,35 @@ g_r1
 	genop('or','al','al')
 	genop(jop,getarg(arg1))				:(opdone)
 
-*	*   5.16 ATN
+*	5.16 ATN
 
 *	Arctangent of real accumulator
 
-*	*   5.17 CHP
+*	5.17 CHP
 
 *	Integer portion of real accumulator
 
-*	*   5.18 COS
+*	5.18 COS
 
 *	Cosine of real accumulator
 
-*	*   5.19 ETX
+*	5.19 ETX
 
 *	e to the power in the real accumulator
 
-*	*   5.20 LNF
+*	5.20 LNF
 
 *	Natural logorithm of real accumulator
 
-*	*   5.21 SIN
+*	5.21 SIN
 
 *	Sine of real accumulator
 
-*	*   5.22 SQR
+*	5.22 SQR
 
 *	square root of real accumulat
 
-*	*   5.23 TAN
+*	5.23 TAN
 
 *	Tangent of real accumulator
 
@@ -2251,11 +2232,11 @@ g_tan
 *	The only operations permitted on a character pointer are LCH
 *	and SCH. In particular, a character pointer may not even be moved with MOV
 
-*	*   6.1	 PLC  _x,opv_
+*	6.1	 PLC  _x,opv_
 
 *	Prepare ch ptr for LCH CMC MVC,TRC MCB
 
-*	*   6.2	 PSC  _x,opv_
+*	6.2	 PSC  _x,opv_
 
 *	Prepare character pointer for SCH MVC MCB
 
@@ -2279,7 +2260,7 @@ g_psc
 	differ(arg2) fetch(w2,arg3)
 	genop('add',w1,w2,'cfp_f')			:(opdone)
 
-*	*   6.3	 LCH  _reg,opc_
+*	6.3	 LCH  _reg,opc_
 
 *	Load character into register
 
@@ -2287,7 +2268,7 @@ g_lch
 
 	fetch(text(arg1),arg2,'char')			:(opdone)
 
-*	*   6.4	 SCH  _reg,opc_
+*	6.4	 SCH  _reg,opc_
 
 *	Store character from _reg_
 
@@ -2298,7 +2279,7 @@ g_sch
 
 	store(text(arg1),arg2,'char')			:(opdone)
 
-*	*   6.5	 CSC  _x_
+*	6.5	 CSC  _x_
 
 *	Complete store characters
 
@@ -2318,7 +2299,6 @@ g_csc
 
 							:(opdone)
 
-
 *  ## CMD and CNE
 
 *	The following instructions are used to compare two words containing CFP$C characters.
@@ -2329,7 +2309,7 @@ g_csc
 *	Note that restriction 2 above, eases use of these orders in testing complete strings for 
 *	equality, since whole word tests are possible.
 
-*	*   6.6	 CEQ   _opw,opw,plbl_
+*	6.6	 CEQ   _opw,opw,plbl_
 
 *	Jump to _plbl_	_opw_ eq  _opw_
 
@@ -2341,7 +2321,7 @@ g_ceq
 	ident(incode,'ceq') jump('eq',arg3)
 	ident(incode,'cne') jump('ne',arg3)
 
-*	*   6.7	 CNE   _opw,opw,plbl_
+*	6.7	 CNE   _opw,opw,plbl_
 
 *	Jump to _plbl_	_opw_ ne  _opw_
 
@@ -2349,7 +2329,7 @@ g_cne
 
 							:(g_ceq_
 
-*	*   6.8	 CMC  _plbl_,_plbl_
+*	6.8	 CMC  _plbl_,_plbl_
 
 *	Compare characters
 
@@ -2387,14 +2367,14 @@ g_cmc
 	genop('subs',wa,const(1))
 
 	jump('ne',loop_lbl);* loop back if more characters
-*	
+
 	Here if same, so clear xl and xr, then fall through to next instruction
 
 	genopl(text(done_lbl),'xor',xl,xl)
 	genop('xor',xr,xr)
 							:(opdone)
 
-*	*   6.9	 TRC
+*	6.9	 TRC
 
 *	Translate characters
 
@@ -2434,7 +2414,7 @@ g_trc
 	genopl(text(done_lbl),'xor',xl,xl)
 	genop('xor',xr,xr)
 							:(opdone)
-*	*   6.10 FLC  _w_
+*	6.10 FLC  _w_
 
 *	Fold character to upper case
 
@@ -2444,7 +2424,7 @@ g_flc
 
 *	#### 7- Operations on Bit String Values
 
-*	*   7.1	 ANB   _w,opw_
+*	7.1	 ANB   _w,opw_
 
 *	And bit string values, result in _w_
 
@@ -2454,7 +2434,7 @@ g_anb
 	fetch(w1,arg2)
 	genop('and',reg,reg,w1)				:(opdone)
 
-*	*   7.2	 ORB   _w,opw_
+*	7.2	 ORB   _w,opw_
 
 *	Or bit string values, result in _w_
 
@@ -2464,7 +2444,7 @@ g_anb
 
 g_orb	
 
-*	*   7.3	 XOB   _w,opw_
+*	7.3	 XOB   _w,opw_
 
 *	Exclusive or bit string values, result in _w_
 
@@ -2476,7 +2456,7 @@ g_xob
 	fetch(w1,arg2)
 	genop('eor',reg,reg,w1)				:(opdone)
 
-*	*   7.4	 CMB  _w_
+*	7.4	 CMB  _w_
 
 *	Complement all bits in _w_
 
@@ -2490,7 +2470,7 @@ g_cmb
 
 *	The following operations are logical shifts, not arithmetic shifts.
 
-*	*   7.5	 RSH  _w,val_
+*	7.5	 RSH  _w,val_
 
 *	Right shift _w_ by _val_ bits
 
@@ -2500,7 +2480,7 @@ g_rsh
 	fetch(w1,arg2)
 	genop('and',reg,reg,w1)				:(opdone)
 
-*	*   7.6	 LSH  _w,val_
+*	7.6	 LSH  _w,val_
 
 *	Left shift _w_ by _val_ bits
 
@@ -2510,7 +2490,7 @@ g_lsh
 	fetch(w1,arg(2))
 	genop('lsl',reg,reg,w1)				:(opdone)
 
-*	*   7.7	 RSX  _w,(x)_
+*	7.7	 RSX  _w,(x)_
 
 *	Right shift _w_ by  number of bits in _x_
 
@@ -2521,7 +2501,7 @@ g_rsx
 	genop('lsr',reg,reg,w1)				:(opdone)
 
 
-*	*   7.9	 NZB  _w,plbl_
+*	7.9	 NZB  _w,plbl_
 
 *	Jump to _plbl_ w is not all zero bits.
 
@@ -2531,7 +2511,7 @@ g_nzb
 	genop('or',reg,reg)
 	jump('ne,arg2)					:(opdone)
 
-*	*   7.10 ZRB  w,_plbl_
+*	7.10 ZRB  w,_plbl_
 
 *	Jump to _plbl_ w is all zero bits
 
@@ -2540,7 +2520,7 @@ g_zrb
 	genop('or',reg,reg)
 	jump('eq,arg1)					:(opdone)
 
-*	*   7.11 ZGB   _opn_
+*	7.11 ZGB   _opn_
 
 *	Zeroise garbage bits
 
@@ -2551,7 +2531,7 @@ g_zrb
 *	 some bits in _reg_ may be undefined.
 
 *	This opcode replaces such bits by the zero bit. ZGB is a no-op the word size is a
-*	 multiple of the character size.
+*	multiple of the character size.
 
 g_zgb
 
@@ -2564,7 +2544,7 @@ g_zgb
 *	The following instructions provide for conversion between lengths in bytes and lengths in words.
 
 
-*	*   8.1	 WTB  _reg_
+*	8.1	 WTB  _reg_
 
 *	Convert	 _reg_ from words to bytes.
 
@@ -2574,7 +2554,7 @@ g_wtb
 
 	genop('lsl',text(arg1), const('log_cfp_b'))	:(opdone)
 
-*	*   8.2	 BTW  _reg_
+*	8.2	 BTW  _reg_
 
 *	Convert _reg_ from bytes to words by dividing _reg_ by CFP$B discarding the fraction.
 *	This is a  no-op if CFP$B is one
@@ -2586,7 +2566,7 @@ g_btw
 
 	genop('lsr',text(arg1), const('log_cfp_b'))	:(opdone)
 
-*	*   8.3	 MTI   _opn_
+*	8.3	 MTI   _opn_
 
 *	The value of _opn_ (an address) is moved as a positive integer to the integer accumulator.
 
@@ -2594,7 +2574,7 @@ g_mti
 
 	genop('ldr',ia, arg2)				:(opdone)
 
-*	*   8.4	 MFI   _opn,plbl_
+*	8.4	 MFI   _opn,plbl_
 
 *	The value currently stored in the integer accumulator is moved to _opn_ as an address 
 *	if it is in the range 0 to CFP$M inclusive.
@@ -2629,7 +2609,7 @@ g_mfi.1
 
 	store(ia,arg1)					:(opdone)
 
-*	*   8.5	 ITR
+*	8.5	 ITR
 
 *	Convert integer value in integer accumulator to real and store in real accumulator 
 *	(may lose precision in some cases)
@@ -2638,7 +2618,7 @@ g_itr
 
 	error('g_itr real arithmetic not supported')	:(opdone)
 
-*	*   8.6	 RTI  _plbl_
+*	8.6	 RTI  _plbl_
 
 *	Convert the real value in RA to an integer and place result in IA .  Conversion is 
 *	by truncation of the fraction - no rounding occurs.
@@ -2657,7 +2637,7 @@ g_rti
 
 	genop('jc',getarg(arg1))				:(opdone)
 
-*	*   8.8	 CTB  _w,val_
+*	8.8	 CTB  _w,val_
 
 *	CTB is exactly like CTW except that the result is in bytes.
 
@@ -2671,7 +2651,7 @@ g_ctb
 	genop('add',reg,reg,const('(cfp_b-1)+cfp_b*' text(arg2)))
 	genop('and',reg,const('-cfp_b'))
 							:(opdone)
-*	*   8.9	 CVM  _plbl_
+*	8.9	 CVM  _plbl_
 
 *	Convert by multiplication
 
@@ -2694,7 +2674,7 @@ g_cvm
 	genop('jo',t1)
 							:(opdone)
 
-*	* 8.10 cvd
+*	8.10 cvd
 
 *	Convert by division
 
@@ -2720,7 +2700,7 @@ g_cvd
 *	least one item, and may may wrap the counter causing a core dump in some implementations.
 *	Thus WA should be greater than 0 prior to invoking any of these block move instructions.
 
-*	*   9.1	 MVC
+*	9.1	 MVC
 
 *	Move characters
 
@@ -2760,7 +2740,7 @@ g_mvc
 	z_suspend = 0
 							:(opdone)
 
-*	* 9.2  MVW
+*	9.2  MVW
 
 *		      move words
 
@@ -2798,7 +2778,7 @@ g_mvw
 	z_suspend = 0
 							:(opdone)
 
-*	*   9.3	 MWB
+*	9.3	 MWB
 
 *	Move words backwards
 
@@ -2826,7 +2806,7 @@ g_mwb
 		subs(wa,wa,const('cfp_b'))
 		jump('ne',loopw)			:(opdone)
 
-*	*   9.4	 MCB
+*	9.4	 MCB
 
 *	Move characters backwards
 
@@ -2877,7 +2857,7 @@ g_mcb
 	During execution it is necessary to make sure that the stack does not overflow.
 *	This is achieved by executing the following instruction periodically.
 
-*	*   10.1 CHK
+*	10.1 CHK
 
 *	Check stack overflow
 
@@ -3056,13 +3036,13 @@ g_inr	genop('')					:(opdone)
 
 *	Who uses listings these days? Who even knows what a listing is? Those were the days ...
 
-*	*   13.1 EJC
+*	13.1 EJC
 
 *	Eject to next page
 
 g_ejc							:(opdone)
 
-*	*   13.2 TTL  text
+*	13.2 TTL  text
 
 *	Set new assembly title
 
