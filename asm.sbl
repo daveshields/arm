@@ -134,7 +134,7 @@ chktrace_end
 
 const
 
-	const = convert(iarg,'integer) '#' convert(iarg,'integer') :s(return)
+	const = convert(iarg,'integer') '#' convert(iarg,'integer') :s(return)
 
 	ne(type(iarg),2) error('request for undefined symbol: ' text(iarg))	:(return)
 	const = '#' text(iarg)				:(return)
@@ -235,12 +235,12 @@ fetch
 	eq(type(iarg),2)					:s(fetch_ok)
 	eq(type(iarg),3)					:s(fetch_ok)
 	eq(type(iarg),4)					:s(fetch_ok)
-	lt(itype(iarg,7)					:s(fetch_err)
-	gt(itype(iarg,15)					:s(fetch_err)
+	lt(itype(iarg),7)					:s(fetch_err)
+	gt(itype(iarg),15)					:s(fetch_err)
 
 fetch_err
 
-	error('fetch type not valid, but is ' type(iarg)	:(freturn)
+	error('fetch type not valid, but is ' type(iarg))	:(freturn)
 
 fetch_ok
 
@@ -345,6 +345,7 @@ genop_end
 *	initalize for translation
 init
 
+	output = 'init called'
 *	revision history:
 
 	version = 'v1.0'
@@ -490,6 +491,7 @@ config_done
 *	following instances of minarg used for character operations.
 
 	arg_xl = minarg(7,'xl')
+	arg_xli = minarg(7,'xl')
 	arg_xli = minarg(9,'(xl)')
 	arg_xlp = minarg(10,'(xl)+')
 	arg_mxl = minarg(11,'-(xl)')
@@ -498,6 +500,11 @@ config_done
 	arg_xri = minarg(9,'(xr)')
 	arg_xrp = minarg(10,'(xr)+')
 	arg_mxr = minarg(11,'-(xr)')
+
+	arg_xsp = minarg(9,'(xs)')
+	arg_xsp = minarg(10,'(xs)+')
+	arg_mxs = minarg(11,'-(xs)')
+
 
 	data('tstmt(t.label,t.opc,t.op1,t.op2,t.op3,t.comment)')
 
@@ -711,9 +718,11 @@ jump
 
 jump_err
 
-	error('fetch type not valid, but is ' type(iarg)	:(freturn)
+	error('fetch type not valid, but is ' type(iarg))	:(freturn)
 
 jump_ok
+
+*	Some minimal labels end encoded as datatype by the scanner, others aren't.
 
 	lbl = (ident(datatype(iarg),'minarg') text(iarg), iarg)
 							:f($('jump' type(iarg)))
@@ -722,8 +731,8 @@ jump_4
 
 *  wlbl, clbl
 
-	genop('adr' cond,w0,lbl)
-	genop('mov' cond,pc,w0)				:(return)
+*	genop('adr' cond,w0,lbl)
+	genop('mov' cond,pc,lbl)			:(return)
 jump_7
 jump_8
 
@@ -907,6 +916,7 @@ skip_init	s break(':') . on ':' rem . off		:f(return)
 skip_init_end
 -stitl main program
 
+	output = 'start main program'
 *	here follows the driver code for the "main" program.
 
 	init()
@@ -1022,7 +1032,7 @@ g_mov_push
 
 g_brn
 
-	jump('AL',arg1)					:(opdone)
+	jump(,arg1)					:(opdone)
 
 *	1.3  BSW  _x,val,plbl_    branch on switch value
 
@@ -1043,13 +1053,14 @@ g_bsw
 
 	z_suspend = 1
 
-	fetch(w1,arg1)
+	reg = text(arg1)
 	fetch(w2,arg2)
 	t2 = genlab()
 	ident(text(arg3))				:s(g_bsw1)
 
 *	Here if _plbl_, so generate branch to it if out or range
-	genop('cmp',w1,w2)
+
+	genop('cmp',reg,w2)
 	jump('ge',arg3)
 
 g_bsw1
@@ -1057,7 +1068,7 @@ g_bsw1
 *  here after default case check (if needed).
 
 
-	genop('ldr',pc,'[' w1 ',' 'cfp_b*' const(text(arg2))']')
+	genop('ldr',pc,'[' reg ',cfp_b*' const(text(arg2)) ']')
 	z_suspend = 0
 							:(opdone)
 
@@ -1074,7 +1085,7 @@ g_bsw1
 
 g_iff
 
-	genop('.word', plbl)				:(opdone)
+	genop('.word', text(plbl))			:(opdone)
 
 
 *	* 1.5  ESW	end of branch switch table
@@ -1112,7 +1123,7 @@ g_ent
 
 	genop('.align',2)
 	differ(text(arg1))				:s(g_ent.1)
-	genop(''nop')
+	genop('nop')
 							:(g_ent.2)
 g_ent.1
 
@@ -1126,7 +1137,7 @@ g_ent.2
 *	here to see if want label made public
 
 	thislabel ? rtab(1) . thislabel '		:'
-*	(differ(pubtab[thislabel]), differ(debug)) genop('global',thislabel)
+*	(differ(pubtab[thislabel]), differ(debug)) genop('.global',thislabel)
 	thislabel =					:(opdone)
 
 *	*   1.7	 BRI   _opn_	  branch indirect
@@ -1138,7 +1149,7 @@ g_ent.2
 g_bri
 
 	fetch(w1,arg1)
-	jump(,r1)				:(opdone)
+	jump(,w1)				:(opdone)
 
 *	*   1.8	 LEI  _x_	  load entry point identification
 
@@ -1154,8 +1165,9 @@ g_lei
 
 g_jsr
 
-	error('TODO g_jsr  need to review closely')	:(opdone)
 	jsr_proc = text(arg1)
+
+	genop('bl',text(arg1))
 
 *	get count of following ppm statements
 
@@ -1167,7 +1179,7 @@ g_jsr
 	jsr_label_norm = jsr_label
 	fetch(w0,rcode)
 	genop('subs',w0,const(1))
-	genop('subs',rcode,rcode,const(1))
+	store(w0,rcode)
 	jump('pl',jsr_label_norm)
 	z_suspend = 0
 
@@ -1214,7 +1226,6 @@ g_ppm
 
 g_prc
 
-	error('TODO g_prc)				:(opdone)
 *	generate public declaration
 *	     t1 = thislabel
 *	     t1 ? rtab(1) . t1 ':'
@@ -1232,13 +1243,10 @@ g_prc.r							:(opdone)
 
 g_prc.n
 
-	error('TODO prc return')			:(opdone)
-
 *	store return address in reserved location
 
-	genop('ldmfd', sp '!')
 	prc.count = prc.count + 1
-	genop('pop',w0)
+	fetch(w0,minarg_mxs);* pop from stack
 	store(w0, prcent(prc.count))			:(opdone)
 
 *	*   1.12 EXI  _int_	  exit from procedure
@@ -1407,7 +1415,7 @@ g_ctw
 *	assume cfp_c chars per word
 
 	fetch(w1,arg1)
-	genop('add',w1,const('(cfp_c - 1) + cfp_c * text(arg2)))
+	genop('add',w1,const('(cfp_c - 1) + cfp_c *' text(arg2)))
 	genop('lsr',w1,w1,const('log_cfp_c'))
 							:(opdone)
 g_sec
@@ -1462,7 +1470,7 @@ g_sec.5
 	genop('endr')
 
 	genop('.global','lowspmin')
-	genopl('lowspmin,'.word', 0)
+	genopl('lowspmin','.word', 0)
 
 	genop('.global','end_min_data')
 	genopl('end_min_data')
@@ -1481,7 +1489,6 @@ g_sec.6
 
 g_sec.7
 
-	error('TODO g_sec..7')				:(opdone)
 	genop('.global','sec07')
 	genopl('sec07' '				:')
 	flush()
@@ -1491,9 +1498,11 @@ g_sec.7
 
 	n1 = max.err + 8
 	output = '  max.err ' max.err
-	genop('adr',w0,'rcode')
-	fetch(w0,'rcode')
-	genopl('err_ :','xchg',wa,'m_word [' rcode ']') :(opdone)
+	genopl('err_')
+	genop('mov',w0,wa);* set up to exchange wa and rcode
+	fetch(w0,minarg(5,'rcode'))
+	store(wa,minarg(5,rcode))
+	genop('mov',wa,w0)				:(opdone)
 
 
 
@@ -1548,8 +1557,7 @@ g_end.2
 g_icv
 
 	fetch(w1,arg1)
-	genop('add',
-	genop('inc',w1,const(1))			:(opdone)
+	genop('add',w1,const(1))			:(opdone)
 
 *	1.17 DCV   _opn_	  decrement value by one
 
@@ -1569,7 +1577,7 @@ g_dcv
 g_zer
 
 	fetch(w0,arg1)
-	genop('xor,w0,w0)
+	genop('xor',w0,w0)
 	store(w0,arg1)
 							:(opdone)
 
@@ -1753,7 +1761,7 @@ g_bze
 
 	fetch(w1,arg1)
 	genop('ors',w1,w1)
-	jump('eq',arg2))				:(opdone)
+	jump('eq',arg2)					:(opdone)
 
 *	2.15 LCT  _w,opv_
 
@@ -1835,11 +1843,11 @@ o
 
 g_bev
 
-	error('BEV not supported)			:(opnext)
+	error('BEV not supported')			:(opnext)
 
 g_bod
 
-	error('BOD not supported)			:(opnext)
+	error('BOD not supported')			:(opnext)
 
 *	 #### 3- Operations on the Code Pointer Register
 
@@ -1928,7 +1936,7 @@ g_mli
 *	arm doesn't allow destination register and first operand register to be the same, so
 *	swap the order since multiplication is commutative.
 
-	genop('muls',wc,w1,wc)				:(opdone)
+	genop('muls',wc,w1,wc)			(opdone)
 
 *	4.4	 SBI   _ops_
 
@@ -1950,7 +1958,16 @@ g_dvi
 *	In ARM V7, signed and unsigned division are avilable in the THUMB instruction set, with
 *	the instructions UDIV and SDIV.
 
-*	need to check if divisor is zero, so can catch via software.
+
+*	Call library procedure (cf. int.asm) to check for zero divisor and do the division
+
+* NOTE: We could -- and probably should -- do check for zero by adding suitably large
+* integers to force overflow.
+
+*	Further note that check for divide by zero is not needed for bootstrap.
+
+	load(w0,arg1)
+	genop('sdiv',ia,w0)				:(opdone)
 
 	fetch(w1,arg1)
 	genop('sdivs',ia,ia,w1)				:(opdone)
@@ -1961,7 +1978,15 @@ g_dvi
 
 g_rmi
 
-	error('TODO find how to do RMI remainder op in arm') :(opdone)
+
+*	Call library procedure (cf. int.asm) to check for zero divisor and do the division
+
+*	Further note that check for divide by zero is not needed for bootstrap.
+
+* TODO g_rmi
+	load(w0,arg1)
+	genop('rmi_')					:(opdone)
+
 	fetch(w1,arg1)
 	error ('rmi todo')				:(opdone)
 
@@ -2327,7 +2352,7 @@ g_ceq
 
 g_cne	
 
-							:(g_ceq_
+							:(g_ceq)
 
 *	6.8	 CMC  _plbl_,_plbl_
 
@@ -2368,7 +2393,7 @@ g_cmc
 
 	jump('ne',loop_lbl);* loop back if more characters
 
-	Here if same, so clear xl and xr, then fall through to next instruction
+*	Here if same, so clear xl and xr, then fall through to next instruction
 
 	genopl(text(done_lbl),'xor',xl,xl)
 	genop('xor',xr,xr)
@@ -2401,17 +2426,17 @@ g_trc
 
 	genopl(looplbl,'nop')
 
-	fetch(w2,minarg(10,'(xl)+','char'));* get next character to translate
-	genop('add',w1,w0,w2);* get addr of replacement character
-	genop('ldr',w1,'[' w1 ']', 'char');* get replacement character
-	genop('strb',w1,minarg(9,'(xr)');* store back replacement characte
+	fetch(w0,arg_xli);* start of translate table
+	fetch(w1,minarg_xlp,'char');* get next character to translate
+	genop('add',w1,w0,w1);* get addr of replacement character
+	genop('ldrb',w1,'[' w1 ']', 'char');* get replacement character
+	store(w1,minarg_xli,'char')
 	genop('subs',wa,const(1))
-
 	jump('ne',loop_lbl);* loop back if more characters
-*	
-	Here when done, so clear xl and xr, then fall through to next instruction
+	
+*	Here when done, so clear xl and xr, then fall through to next instruction
 
-	genopl(text(done_lbl),'xor',xl,xl)
+	genopl(done_lbl,'xor',xl,xl)
 	genop('xor',xr,xr)
 							:(opdone)
 *	6.10 FLC  _w_
@@ -2509,7 +2534,7 @@ g_nzb
 	
 	reg = text(arg1)
 	genop('or',reg,reg)
-	jump('ne,arg2)					:(opdone)
+	jump('ne',arg2)					:(opdone)
 
 *	7.10 ZRB  w,_plbl_
 
@@ -2518,7 +2543,7 @@ g_nzb
 g_zrb
 	reg = text(arg1)
 	genop('or',reg,reg)
-	jump('eq,arg1)					:(opdone)
+	jump('eq',arg1)					:(opdone)
 
 *	7.11 ZGB   _opn_
 
@@ -2572,7 +2597,8 @@ g_btw
 
 g_mti	
 
-	genop('ldr',ia, arg2)				:(opdone)
+	fetch(w0,arg1);* load address
+	genop('ldr',ia, '[' w0 ']')			:(opdone)
 
 *	8.4	 MFI   _opn,plbl_
 
@@ -2596,10 +2622,10 @@ g_mfi
 
 *	here if label given, branch if ia not in range (ie, negative)
 
-	genop('mov',w0,ia)
-	genop('cmp',w0,w0)
+	genop('mov',ia,w0)
+	genop('ors',w0,w0)
 	jump('mi',arg2);* branch if ia negative
-	genop('subs',w0,ia,const('cfp_m'));
+	genop('subs',w0,w0,const('cfp_m'));
 	jump('mi',arg2);* branch if ia greater than cfp_m
 	store(ia,arg1)					:(opdone)
 
@@ -2662,20 +2688,14 @@ g_ctb
 *	(IA) undefined. execution of CVM leaves the result in (WB) undefined.
 
 g_cvm	
-	error('TODO ctb')				:(opdone)
-	t1 = getarg(arg1)
-
-	genop('sti_',w0)
-	genop('imul',w0,'10')
-	genop('jo',t1)
-	genop('sub',wb,'ch_d0')
-	genop('sub',w0,wb)
-	genop('ldi_',w0)
-	genop('jo',t1)
+	genop('mov',w0,const(10))
+	genop('smul',ia,w0)
+	genop('subs',ia,wb)
+	jump('vs',arg1);* jump on overflow
 							:(opdone)
 
 *	8.10 cvd
-
+*HERE
 *	Convert by division
 
 *	The integer accumulator, which is zero or negative, is divided by 10.
@@ -2687,8 +2707,17 @@ g_cvm
 
 g_cvd
 
-	error('TODO cvd')				:(opdone)
-	genop('cvd_')					:(opdone)
+	genop('mov',w0,const(10))
+	genop('sdiv',ia,w0)
+
+*	compute remainder, complement it, and add to code for digit 0.
+
+	genop('smul',w1,ia,const(10))
+	genop('sub',w1,ia,w1);* remainder (is negative or zero)
+	genop('or',w2,w2);* clear w2
+	genop('rsb',w2,w2,w1);* make remainder positive
+	genop('add',wa,w2,'ch_d0');* convert to digit code
+							:(opdone)
 
 *	#### 9-	 Block Move Instructions
 
@@ -2725,17 +2754,16 @@ g_mvc
  
 	z_suspend = 1
 
-	dumpb = minarg(5,'dumpb')
 	loopc = genlab()
 	fetch(wb,arg_xlp,'char')
 	store(wb,min_xrp,'char')
-	genop('str',wb,dumpb)
+	genop('str',wb,'dumpb')
 
 	genopl(loopc)
 		gen_sch(wb,arg_xrp)
 		subs(wa,const(1))
 		jump('mi',loopc)
-	fetch(wb,dumpb)
+	fetch(wb,'dumpb')
 
 	z_suspend = 0
 							:(opdone)
@@ -2759,9 +2787,9 @@ g_mvc
 
 *	The initial addresses in XR,XL are word addresses.
 
-*	As indicated, the final XR ,XL values point past the new and old regions of memory respectively.
+*	As indicated, the final XR and XL values point past the new and old regions of memory respectively.
 
-*	The final value of WA is undefined.  WA,XL,XR must be set up before obeying MVW.
+*	The final value of WA is undefined.  WA, XL and XR must be set up before obeying MVW.
 
 
 g_mvw
@@ -2769,7 +2797,7 @@ g_mvw
 	z_suspend = 1
 
 	loopw = genlab()
-		genopl(text(loopw))
+		genopl(loopw)
 		fetch(w0,arg_xlp)
 		store(w0,arg_xrp)
 		subs(wa,wa,const('cfp_b'))
@@ -2794,17 +2822,16 @@ g_mvw
 
 *	The final value of WA is undefined.
 
-*	WA ,XL , XR must be set up before obeying MWB .
+*	WA,XL, and XR must be set up before obeying MWB .
 
 g_mwb
 
-	error('TODO mwb')				:(opdone)
-	loopw = genlab()
-		genopl(text(loopw))
+	loopb = genlab()
+		genopl(loopb)
 		fetch(w0,arg_mxr)
 		store(w0,arg_mxl)
 		subs(wa,wa,const('cfp_b'))
-		jump('ne',loopw)			:(opdone)
+		jump('ne',loopb)			:(opdone)
 
 *	9.4	 MCB
 
@@ -2827,22 +2854,21 @@ g_mwb
 *	There is a requirement that the initial value in XL be at least 256 less than the value in XR.
 *	This allows an implementation in which chunks of 256 bytes are moved forward (IBM 360, ICL 1900).
 
-*	The final value of WA is undefined.  WA,XL ,XR must be set up before obeying MCB
+*	The final value of WA is undefined.  WA, XL, and XR must be set up before obeying MCB
 
 g_mcb
 
 
-	dumpb = minarg(5,'dumpb')
 	loopc = genlab()
 	gen_plc(arg_xl)
 	gen_plc(arg_xr)
-	store(wb,dumpb)
+	store(wb,'dumpb')
 	genopl(loopc)
-		gen_sch(wb,arg_mxl)
-		gen_sch(wb,arg_mxr)
+		fetch(wb,arg_mxl,'char')
+		store(wb,arg_mxr,'char')
 		subs(wa,const(1))
 		jump('mi',loopc)
-	fetch(wb,dumpb)
+	fetch(wb,'dumpb')
 
 *	#### 10- Operations Connected with the Stack
 
@@ -2853,7 +2879,7 @@ g_mcb
 
 *	The stack builds downward in this implementation.
 
-*	The starting stack base address is passed in (XS ) at The start of execution.
+*	The starting stack base address is passed in (XS) at The start of execution.
 	During execution it is necessary to make sure that the stack does not overflow.
 *	This is achieved by executing the following instruction periodically.
 
@@ -2867,10 +2893,9 @@ g_mcb
 
 g_chk
 
-	error('TODO - see if can access lowspmin using adr pseudo-op') :(opdone)
-	fetch(w0,text(5,'lowspmin')
-	genop('cmp',xs,'w0)
-	jump('lo','minarg(5,'sec06'))			:(opdone)
+	fetch(w0,minarg(5,'lowspmin'))
+	genop('cmp',xs,w0)
+	jump('lo',sec06)				:(opdone)
 
 *	#### 11- Data Generation Instructions
 
