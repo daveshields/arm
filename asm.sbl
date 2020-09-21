@@ -134,10 +134,9 @@ chktrace_end
 
 const
 
-	const = convert(iarg,'integer') '#' convert(iarg,'integer') :s(return)
-
-	ne(type(iarg),2) error('request for undefined symbol: ' text(iarg))	:(return)
-	const = '#' text(iarg)				:(return)
+	
+	const = ident(datatype(iarg),minarg) '#' text(iarg)	:s(return)
+	const = '#' iarg				:(return)
 
 const_end
 -stitl	flush
@@ -202,110 +201,27 @@ comregs_end
 *	the error are written to the listing (including error chain), and
 *	the appropriate counts are updated.
 
-	outfile = filenami ': error: ' text
-	outfile = rpad(lpad(input_lines,6),size(filenami) -1) ' | ' thisline
+error
+
+	output = filenami ': error: ' text ' in line ' input_lines
+	output = 'this line ' thisline
+* output = 'error datatype filenami ' datatype(filenami)
+*	outfile = rpad(lpad(input_lines,6),size(filenami) -1) ' | ' thisline
 	lasterror = output_lines
 	output_lines = output_lines + 2
 	le(nerrors = nerrors + 1, 10)			:s(opnext)
 	output = 'too many errors, quitting'		:(end)
 
 error_end
--stitl	fetch(argnum)
-	define('fetch(reg,iarg,kind)op,base,offset')	:(fetch_end)
+-stitl	fetch - load value from memory
+	define('fetch(reg,iarg,kind)')			:(fetch_end)
 
-*	get argument to register _reg_ and return that register.
-*	fetch word unless _kind_ is not null, in which case fetch character
+*	load value from memory to register
 
 fetch
 
-*	val	01,02			predefined value
-*	reg	07,08			register
-*	opc	09,10,11		character
-*	ops	03,04,09,12-15		memory reference
-*	opw	03,04,08-15		full word
-*	opn	03,04,07-15		one word integer, e.g., an address
-*	opv	03,04,0-15,18-22	one word integer value	
-*	addr	01-05			address
-
-
-	op = (differ(kind) 'ldrb', 'ldr')
-
-* output = 'fetch text <' text(iarg) '>  type <' type(iarg) '>'
-	eq(type(iarg),1)					:s(fetch_ok)
-	eq(type(iarg),2)					:s(fetch_ok)
-	eq(type(iarg),3)					:s(fetch_ok)
-	eq(type(iarg),4)					:s(fetch_ok)
-	lt(itype(iarg),7)					:s(fetch_err)
-	gt(itype(iarg),15)					:s(fetch_err)
-
-fetch_err
-
-	error('fetch type not valid, but is ' type(iarg))	:(freturn)
-
-fetch_ok
-
-								:f($('fetch_' type(iarg)))
-fetch_1
-fetch_2
-
-	genop(op, '=' text(iarg))				:(return)
-
-fetch_3
-fetch_4
-
-*	wlbl, clbl
-
-	genop(op,reg,'=' text(arg1))
-	genop(op,'[' reg ']')
-   								:(return)
-fetch_7
-fetch_8
-
-*	w,x, map register name
-
-	genop('mov',reg,text(iarg))				:(return)
-
-fetch_9
-
-*	(x), register indirect
-
-	genop(op,reg, '[' text(iarg) ']')
-								:(return)
-
-fetch_10
-
-*	(x)+, register indirect, post increment
-
-*	ident(text(iarg),'(xs)+) genop('pop','{' reg '})	:s(return)
-	
-	offset = (ident(kind),'cfp_b',1)
-	genop(op,reg, '[' base  '],' const(offset))		:(return)
-
-fetch_11
-
-*	-(x), register indirect, pre decrement
-
-	offset = (ident(kind),'cfp_b',1)
-	genop(op,reg, '[' base ','  const(offset) ']!')		:(return)
-
-fetch_12
-fetch_13
-
-*	int(x)
-*	dlbl(x)
-
-	text(iarg) break('(') . offset '(' len(2) . base
-	genop(op,reg,'[' base, ',' const('cfp_b*' offset) ']')	:(return) 
-
-fetch_14
-fetch_15
-
-*	name(x), where name is in working section
-
-	text(iarg) break('(') . offset '(' len(2) . base
-	genop(op,reg,'[' base, ',' const(offset) ']')		:(return) 
-
-fetch_done
+ output = 'fetch reg<' reg '> type<' type(iarg) '> text <' text(iarg) '> kind <' kind '>'
+	genmem('ldr',reg,iarg,kind)			:(return)
 
 fetch_end
 -stitl genlab()
@@ -319,6 +235,115 @@ genlab
 	genlab = '_l' lpad(genlabels = genlabels + 1,4,'0') :(return)
 
 genlab_end
+-stitl	genmem(argnum)
+	define('genmem(op,reg,iarg,kind)base,offset')	:(genmem_end)
+
+*	get argument to register _reg_ and return that register.
+*	genmem word unless _kind_ is not null, in which case genmem character
+
+genmem
+
+*	val	01,02			predefined value
+*	reg	07,08			register
+*	opc	09,10,11		character
+*	ops	03,04,09,12-15		memory reference
+*	opw	03,04,08-15		full word
+*	opn	03,04,07-15		one word integer, e.g., an address
+*	opv	03,04,0-15,18-22	one word integer value	
+*	addr	01-05			address
+
+
+ output = 'genmem datatype ' datatype(iarg) ' ' type(iarg) ' ' text(iarg)
+ output = 'genmem op <' op '> reg<' reg '> kind<' kind '>'
+
+	kind = differ(kind) 'b'
+	op = op kind
+
+
+								:($('genmem_' type(iarg)))
+genmem_1
+genmem_2
+
+	genop(op, '=' text(iarg))				:(return)
+
+genmem_3
+genmem_4
+genmem_5
+genmem_6
+
+*	wlbl, clbl, elbl, plbl (all labels in text section in arm version)
+
+	genop(op,reg,text(iarg))				:(return)
+
+genmem_7
+genmem_8
+
+*	w,x, map register name
+
+	genop(op,reg,text(iarg))				:(return)
+
+genmem_9
+
+*	(x), register indirect
+
+	genop(op,reg, '[' text(iarg) ']')
+								:(return)
+
+genmem_10
+
+*	(x)+, register indirect, post increment
+
+*	ident(text(iarg),'(xs)+) genop('pop','{' reg '})	:s(return)
+	
+	offset = (ident(kind),'cfp_b',1)
+	genop(op,reg, '[' base  '],' const(offset))		:(return)
+
+genmem_11
+
+*	-(x), register indirect, pre decrement
+
+	offset = (ident(kind),'cfp_b',1)
+	genop(op,reg, '[' base ','  const(offset) ']!')		:(return)
+
+genmem_12
+genmem_13
+
+*	int(x)
+*	dlbl(x)
+
+	text(iarg) break('(') . offset '(' len(2) . base
+	genop(op,reg,'[' base ',' const('cfp_b*' offset) ']')	:(return) 
+
+genmem_14
+genmem_15
+
+*	name(x), where name is in working section
+
+	text(iarg) break('(') . offset '(' len(2) . base
+	genop(op,reg,'[' base, ',' const(offset) ']')		:(return) 
+
+genmem_18
+genmem_20
+genmem_21
+genmem_22
+
+	genop('adr',reg,text(iarg))				:(return)
+
+genmem_19
+
+	genop('adr',reg,text(iarg))
+	genop('lsl',reg,'lsl 2')				:(return)
+
+genmem_23
+genmem_24
+genmem_26
+genmem_27
+
+	error('genmem type not valid, but is ' type(iarg))	:(freturn)
+
+genmem_ok
+
+genmem_end
 -stitl genopl(gopl,gopc,gop1,gop2,gop3)
 	define('genopl(gopl,gopc,gop1,gop2,gop3)')	:(genopl_end)
 
@@ -345,7 +370,6 @@ genop_end
 *	initalize for translation
 init
 
-	output = 'init called'
 *	revision history:
 
 	version = 'v1.0'
@@ -372,22 +396,14 @@ init
 
 	fileprefix = "sbl"
 
-*	cfp_b is bytes per word, cfp_c is characters per word these should
-*	agree with the values used in translator.  set target-dependent 
-*	configuration parameters.
-
 *	cfp_b is bytes per word, cfp_c is characters per word
 *	these should agree with values used in translator
 
-	cfp_b = 8
-	log_cfp_b = '3'
+	cfp_b = 4
+	log_cfp_b = '2'
 
-	cfp_c = 8
-	log_cfp_c = '3'
-
-*	used for data declarations
-	op_w = 'q'
-	op_c = 'b'
+	cfp_c = 4
+	log_cfp_c = '2'
 
 *	target register assignments
 
@@ -398,7 +414,8 @@ init
 
 	w0 = 'w0'; w1 = 'w1'; w2 = 'w2'
 	wa = 'wa'; wb = 'wb'; wc = 'wc'
-	xl = 'xl'; xr = 'wr'; xt = xl
+	xl = 'xl'; xr = 'wr'; 
+	xs = 'xs'; xt = xs
 	ia = wc
 	cp = 'cp' 
 
@@ -407,10 +424,6 @@ init
 
 	pc = 'pc'
 	PC = pc
-
-*	rcode is used to hold return code value from subroutine call.
-
-	rcode = '_rc_'
 
 * symbolic target assignments
 
@@ -505,6 +518,9 @@ config_done
 	arg_xsp = minarg(10,'(xs)+')
 	arg_mxs = minarg(11,'-(xs)')
 
+*	rcode is used to hold return code value from subroutine call.
+
+	rcode = minarg(5,'_rc_')
 
 	data('tstmt(t.label,t.opc,t.op1,t.op2,t.op3,t.comment)')
 
@@ -656,9 +672,10 @@ flgs2
 							:(return)
 init_end
 -stitl	isreg(iarg)
-	define('isreg(iarg)')				:(isreg_end)
+	define('isreg(iarg)c')				:(isreg_end)
 
 *	succeeds if _iarg_ is a minimal register name, fails otherwise.
+
 isreg
 
 * output = 'isreg datatype ' datatype(iarg) ' <' datatype(iarg) '>'
@@ -716,33 +733,30 @@ jump
 *	opv	03,04,0-15,18-22	one word integer value	
 *	addr	01-05			address
 
-jump_err
-
-	error('fetch type not valid, but is ' type(iarg))	:(freturn)
-
-jump_ok
-
 *	Some minimal labels end encoded as datatype by the scanner, others aren't.
 
-	lbl = (ident(datatype(iarg),'minarg') text(iarg), iarg)
-							:f($('jump' type(iarg)))
-jump_3
-jump_4
+	lbl = (ident(datatype(iarg),'minarg') text(iarg),iarg)
+	typ = (ident(datatype(iarg),'minarg') type(iarg),6)
+ output = 'jump typ <' typ '> lbl <' lbl '>'
+							:($('jump_' typ))
+jump_5
+jump_6
 
-*  wlbl, clbl
+* 	elbl,pbl
 
 *	genop('adr' cond,w0,lbl)
 	genop('mov' cond,pc,lbl)			:(return)
+
 jump_7
 jump_8
 
-*  w,x, map register name
+*	w,x, map register name
 
 	genop('mov' cond, pc, text(iarg))		:(return)
 
 jump_9
 
-*  (x), register indirect
+*	(x), register indirect
 
 	fetch(w0,iarg)
 	genop('mov' cond, pc, w0)			:(return)
@@ -765,12 +779,26 @@ jump_13
 	fetch(w0,iarg)
 	genop('mov' cond, pc, '[' w0 ']')		:(return)
 
+jump_err
+jump_1
+jump_2
+jump_3
+jump_4
+jump_14
 jump_15
+jump_16
+jump_17
+jump_18
+jump_19
+jump_20
+jump_21
+jump_22
+jump_25
+jump_26
+jump_27
 
-*	name(x), where name is in working section
-
-	fetch(w0,iarg)
-	genop('mov' cond,pc,'[' w0 ']')			:(return)
+ output = 'datatype jump arg ' datatype(iarg)
+	error('fetch type not valid, but is ' type(iarg))	:(freturn)
 
 jump_end
 -stitl prcent(n)
@@ -779,15 +807,6 @@ jump_end
 prcent prcent = 'prc_+cfp_b*' ( n - 1)			:(return)
 
 prcent_end
--stitl	report(num,text)
-
-	define('report(num,text)')			:(report_end)
-
-report
-
-	output = rpad('	 ' text ':',30) num		:(return)
-
-report_end
 -stitl outstmt(ostmt)label,opcode,op1,op2,op3,comment,line)
 	define('outstmt(ostmt)line,label,opcode,op1,op2,op3,comment,t,stmtout')
 .			:(outstmt_end)
@@ -816,6 +835,9 @@ outstmt2
 	op2 = t.op2(ostmt)
 	op3 = t.op3(ostmt)
 	differ(compress)				:s(outstmt3)
+*	output = datatype(op1) ' ' datatype(op2) ' ' datatype(op3)
+ output = ' opcode ' opcode ' op1 <' op1  '> op2 <' op2  '>'
+ output = differ(op3)  output  '  op3 <' op3 '>'
 	line = rpad( rpad(label,7) ' ' rpad(opcode,4) ' '
 .		  (ident(op1), op1
 .			(ident(op2), ',' op2
@@ -849,7 +871,7 @@ outstmt5
 
 outstmt6
 
-* output =  line
+ output =  line
 	outfile = line
 	ntarget = ntarget + 1
 	output_lines = output_lines + 1
@@ -881,6 +903,7 @@ readline
 
 	readline = infile				:f(readline_eof)
 
+ output = 'readline <' readline '>'
 	input_lines  = input_lines + 1
 	ident( readline )				:f(readline_2)
 
@@ -904,6 +927,15 @@ readline_eof
    readline = '	       end'				:(return)
 
 readline_end
+-stitl	report(num,text)
+
+	define('report(num,text)')			:(report_end)
+
+report
+
+	output = rpad('	 ' text ':',30) num		:(return)
+
+report_end
 	define('skip_init(s)on,off')			:(skip_init_end)
 
 *	initialize the skip table used for instruction trace.
@@ -914,9 +946,20 @@ skip_init	s break(':') . on ':' rem . off		:f(return)
 	skip_off[off] = 1				:(return)
 
 skip_init_end
+-stitl	store - load value from memory
+	define('store(reg,iarg,kind)')			:(store_end)
+
+*	store value from register to memory
+
+store
+
+ output = 'store reg<' reg '> type<' type(iarg) '> text <' text(iarg) '> kind <' kind '>'
+	genmem('str',reg,iarg,kind)			:(return)
+
+store_end
 -stitl main program
 
-	output = 'start main program'
+	output = 'start main program execution DS'
 *	here follows the driver code for the "main" program.
 
 	init()
@@ -1012,12 +1055,23 @@ ds.typerr
 
 g_mov
 
-	reg = (isreg(arg1) text(arg1),'')
-	isreg(arg1) isreg(arg2) genop('mov',text(arg1),text(arg2)) :s(opdone)
+	isreg(arg1) isreg(arg2) 			:s(g_mov_reg_reg)
 *	ident(text(arg1),'-(xs)')			:s(g_mov_push)
-	differ(reg) fetch(reg,arg2)			:s(opdone)
-	fetch(w0,arg2)
-	store(w0,arg1)					:(opdone)
+	isreg(arg1)					:s(g_mov_reg_other)
+
+*	here is neither argument is register
+	
+	fetch(w2,arg2)
+	store(w2,arg1)					:(opdone)
+
+g_mov_reg_reg
+
+	genop('mov',text(arg1),text(arg2))		:(opdone)
+
+g_mov_reg_other
+
+	fetch(text(arg1),arg2)				:(opdone)
+
 
 g_mov_push
 
@@ -1032,7 +1086,7 @@ g_mov_push
 
 g_brn
 
-	jump(,arg1)					:(opdone)
+	jump(,text(arg1))				:(opdone)
 
 *	1.3  BSW  _x,val,plbl_    branch on switch value
 
@@ -1085,7 +1139,7 @@ g_bsw1
 
 g_iff
 
-	genop('.word', text(plbl))			:(opdone)
+	genop('.word', plbl)				:(opdone)
 
 
 *	* 1.5  ESW	end of branch switch table
@@ -1326,7 +1380,7 @@ g_ppm.loop
 
 	lab_next = genlab()
 	fetch(w0,rcode)
-	subs(w0,w0,const(1))
+	genop('subs',w0,w0,const(1))
 	jump('pl',lab_next)
 
 	ident(incode,'ppm')				:s(g_ppm.loop.ppm)
@@ -1368,7 +1422,7 @@ g_erb
 
 *	set rcode to error code and branch to error handler
 
-	fetch(w0,const(text(arg1)))
+	genop('mov',w0,const(text(arg1)))
 	store(w0,'rcode')
 	jump(,'err_')					:(opdone)
 
@@ -1641,10 +1695,21 @@ g_mnz
 
 g_add
 
+	isreg(arg1) isreg(arg2)				:s(g_add_reg_reg)
+	isreg(arg1)					:s(g_add_reg_other)
 	fetch(w1,arg1)
 	fetch(w2,arg2)
 	genop('add',w1,w1,w2)
-	store(w1, arg1)					:(opdone)
+	store(w1,arg1)
+
+g_add_reg_reg
+
+	genop('add',text(arg1),text(arg2))		:(opdone)
+
+g_add_reg_other
+
+	fetch(w1, arg1)	
+	genop('add',text(arg1),text(arg1),w1)		:(opdone)
 
 *	2.2	 SUB   _opn,opv_
 
@@ -1652,11 +1717,20 @@ g_add
 
 g_sub
 
-
+	isreg(arg1) isreg(arg2)				:s(g_sub_reg_reg)
+	isreg(arg1)					:s(g_sub_reg_other)
 	fetch(w1,arg1)
-	fetch(w2,arg3)
+	fetch(w2,arg2)
 	genop('sub',w1,w1,w2)
-	store(w1,arg1)					:(opdone)
+
+g_sub_reg_reg
+
+	genop('sub',text(arg1),text(arg2))		:(opdone)
+
+g_sub_reg_other
+
+	fetch(w1,arg2)
+	genop('sub',text(arg1),text(arg1),w2)			:(opdone)
 
 
 *	2.3	 ICA   _opn_
@@ -1691,35 +1765,35 @@ g_dca
 
 *	Branch to _plbl_  _opn_ eq  _opv_
 
-	cond = 'eq'					:(g_bop)
+g_beq	cond = 'eq'					:(g_bop)
 
 *	2.6	 BNE   _opn,opv,plbl_
 
 *	Branch to _plbl_  _opn_ ne  _opv_
 
-	cond = 'ne'					:(g_bop)
+g_bne	cond = 'ne'					:(g_bop)
 
 *	2.7	 BGT   _opn,opv,plbl_
 
 *	Branch to _plbl_  _opn_ gt  _opv_
 
-	g_bop = 'gt'					:(g_bop)
+g_bgt	g_bop = 'gt'					:(g_bop)
 
 *	2.8	 BGE   _opn,opv,plbl_
 
-	g_bop = 'ge'					:(g_bop)
+g_bge	g_bop = 'ge'					:(g_bop)
 
 *	Branch to _plbl_  _opn_ ge  _opv_
 
 *	2.9	 BLT   _opn,opv,plbl_
 
-	g_bop = 'lt'					:(g_bop)
+g_blt	g_bop = 'lt'					:(g_bop)
 
 *	Branch to _plbl_  _opn_ lt  _opv_
 
 *	2.10 BLE   _opn,opv,plbl_
 
-	g_bop = 'le'					:(g_bop)
+g_ble	g_bop = 'le'					:(g_bop)
 
 *	Branch to _plbl_  _opn_ le  _opv_
 
@@ -1727,18 +1801,18 @@ g_dca
 
 *	Equivalent to BLT or BLE
 
-	g_bop = 'lo'					:(g_bop)
+g_blo	g_bop = 'lo'					:(g_bop)
 
 *	2.12 BHI   _opn,opv,plbl_
 
 *	Equivalent to BGT or BGE
 
-	g_bop = 'hi'					:(g_bop)
+g_bhi	g_bop = 'hi'					:(g_bop)
 
 g_bop
 
 	fetch(w1,arg1)
-	fetch(w2,arg3)
+	fetch(w2,arg2)
 	genop('cmp',w1,w2)
 	jump(bop,arg3)					:(opdone)
 
@@ -1802,7 +1876,7 @@ g_lct.1
 g_bct
 
 	reg = text(arg1)
-	subs(reg,reg,const(1))
+	genop('subs',reg,const(1))
 	jump('ge',arg2)				:(opdone)
 
 *	2.17 AOV   _opn,opv,plbl_
@@ -1966,7 +2040,7 @@ g_dvi
 
 *	Further note that check for divide by zero is not needed for bootstrap.
 
-	load(w0,arg1)
+	fetch(w0,arg1)
 	genop('sdiv',ia,w0)				:(opdone)
 
 	fetch(w1,arg1)
@@ -1984,7 +2058,7 @@ g_rmi
 *	Further note that check for divide by zero is not needed for bootstrap.
 
 * TODO g_rmi
-	load(w0,arg1)
+	fetch(w0,arg1)
 	genop('rmi_')					:(opdone)
 
 	fetch(w1,arg1)
@@ -1995,7 +2069,7 @@ g_rmi
 *	Store integer accumulator at  _ops_
 	
 g_sti
-	store(ia,fetch(ia,1))				:(opdone)
+	store(ia,arg1)					:(opdone)
 
 *	4.8	 NGI
 
@@ -2003,8 +2077,6 @@ g_sti
 
 g_ngi
 
-	fetch(ia,1)
-	
 *	Use NEG pseudo-instruction
 
 	genop('neg',ia,ia)				:(opdone)
