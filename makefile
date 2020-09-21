@@ -15,18 +15,18 @@ ELF=elf$(WS)
 
 
 ifeq	($(DEBUG),0)
-CFLAGS= -D m64 -m64 -static 
+CFLAGS= -D m32 -m32 -static 
 else
-CFLAGS= -D m64 -g -m64
+CFLAGS= -D m32 -g -m32
 endif
 
 # Assembler info 
 # Assembler
 ASM=as
 ifeq	($(DEBUG),0)
-ASMFLAGS = -f $(ELF) -d m64
+ASMFLAGS = -f $(ELF) -d m32
 else
-ASMFLAGS = -g -f $(ELF) -d m64
+ASMFLAGS = -g -f $(ELF) -d m32
 endif
 
 # Tools for processing Minimal source file.
@@ -41,12 +41,12 @@ spitbol:
 	$(BASEBOL) lex.sbl 
 	$(BASEBOL) -x asm.sbl
 	$(BASEBOL) -x -1=sbl.err -2=err.asm err.sbl
-	$(ASM) $(ASMFLAGS) err.asm
-	$(ASM) $(ASMFLAGS) int.asm
-	$(ASM) $(ASMFLAGS) sbl.asm
+#	$(ASM) $(ASMFLAGS) err.asm
+#	$(ASM) $(ASMFLAGS) int.asm
+#	$(ASM) $(ASMFLAGS) sbl.asm
 #stop:
-	$(CC) $(CFLAGS) -c osint/*.c
-	$(CC) $(CFLAGS) *.o -osbl -lm
+#	$(CC) $(CFLAGS) -c osint/*.c
+#	$(CC) $(CFLAGS) *.o -osbl -lm
 # link spitbol with dynamic linking
 spitbol-dynamic: $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) $(LIBS) -osbl -lm 
