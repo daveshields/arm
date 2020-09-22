@@ -134,9 +134,9 @@ chktrace_end
 
 const
 
+	const = '#' iarg				:(return)
 	
 	const = ident(datatype(iarg),minarg) '#' text(iarg)	:s(return)
-	const = '#' iarg				:(return)
 
 const_end
 -stitl	flush
@@ -220,7 +220,9 @@ error_end
 
 fetch
 
- output = 'fetch reg<' reg '> type<' type(iarg) '> text <' text(iarg) '> kind <' kind '>'
+	ident(datatype(iarg),'string') genop('FETCH-str' kind,reg, text(iarg))
+	genop('FETCH' kind,reg,text(iarg))		:(return)
+* output = 'fetch reg<' reg '> type<' type(iarg) '> text <' text(iarg) '> kind <' kind '>'
 	genmem('ldr',reg,iarg,kind)			:(return)
 
 fetch_end
@@ -253,8 +255,8 @@ genmem
 *	addr	01-05			address
 
 
- output = 'genmem datatype ' datatype(iarg) ' ' type(iarg) ' ' text(iarg)
- output = 'genmem op <' op '> reg<' reg '> kind<' kind '>'
+* output = 'genmem datatype ' datatype(iarg) ' ' type(iarg) ' ' text(iarg)
+* output = 'genmem op <' op '> reg<' reg '> kind<' kind '>'
 
 	kind = differ(kind) 'b'
 	op = op kind
@@ -737,7 +739,7 @@ jump
 
 	lbl = (ident(datatype(iarg),'minarg') text(iarg),iarg)
 	typ = (ident(datatype(iarg),'minarg') type(iarg),6)
- output = 'jump typ <' typ '> lbl <' lbl '>'
+* output = 'jump typ <' typ '> lbl <' lbl '>'
 							:($('jump_' typ))
 jump_5
 jump_6
@@ -797,7 +799,7 @@ jump_25
 jump_26
 jump_27
 
- output = 'datatype jump arg ' datatype(iarg)
+* output = 'datatype jump arg ' datatype(iarg)
 	error('fetch type not valid, but is ' type(iarg))	:(freturn)
 
 jump_end
@@ -836,8 +838,8 @@ outstmt2
 	op3 = t.op3(ostmt)
 	differ(compress)				:s(outstmt3)
 *	output = datatype(op1) ' ' datatype(op2) ' ' datatype(op3)
- output = ' opcode ' opcode ' op1 <' op1  '> op2 <' op2  '>'
- output = differ(op3)  output  '  op3 <' op3 '>'
+* output = ' opcode ' opcode ' op1 <' op1  '> op2 <' op2  '>'
+* output = differ(op3)  output  '  op3 <' op3 '>'
 	line = rpad( rpad(label,7) ' ' rpad(opcode,4) ' '
 .		  (ident(op1), op1
 .			(ident(op2), ',' op2
@@ -871,7 +873,7 @@ outstmt5
 
 outstmt6
 
- output =  line
+* output =  line
 	outfile = line
 	ntarget = ntarget + 1
 	output_lines = output_lines + 1
@@ -903,7 +905,7 @@ readline
 
 	readline = infile				:f(readline_eof)
 
- output = 'readline <' readline '>'
+* output = 'readline <' readline '>'
 	input_lines  = input_lines + 1
 	ident( readline )				:f(readline_2)
 
@@ -949,12 +951,14 @@ skip_init_end
 -stitl	store - load value from memory
 	define('store(reg,iarg,kind)')			:(store_end)
 
-*	store value from register to memory
+*	store value from register to memory 
 
 store
 
- output = 'store reg<' reg '> type<' type(iarg) '> text <' text(iarg) '> kind <' kind '>'
-	genmem('str',reg,iarg,kind)			:(return)
+	ident(datatype(iarg),'string') genop('STORE-str' kind,reg, text(iarg))
+	genop('STORE' kind,reg,text(iarg))		:(return)
+* output = 'store reg<' reg '> type<' type(iarg) '> text <' text(iarg) '> kind <' kind '>'
+	genmem('ldr',reg,iarg,kind)			:(return)
 
 store_end
 -stitl main program
@@ -1055,11 +1059,17 @@ ds.typerr
 
 g_mov
 
-	isreg(arg1) isreg(arg2) 			:s(g_mov_reg_reg)
+*	process register to register directly, do other moves by load and
+*	store, deferring any optimization until after bootstrap.
+
+	isreg(arg1) isreg(arg2) 			:s(g_mov_reg_reg)f(g_mov_other_other)
+
 *	ident(text(arg1),'-(xs)')			:s(g_mov_push)
 	isreg(arg1)					:s(g_mov_reg_other)
 
 *	here is neither argument is register
+
+g_mov_other_other
 	
 	fetch(w2,arg2)
 	store(w2,arg1)					:(opdone)
@@ -1231,7 +1241,7 @@ g_jsr
 	jsr_calls = jsr_calls +	 1
 	jsr_label = 'call_' jsr_calls
 	jsr_label_norm = jsr_label
-	fetch(w0,rcode)
+	fetch(w0,rcode) 
 	genop('subs',w0,const(1))
 	store(w0,rcode)
 	jump('pl',jsr_label_norm)
@@ -1300,8 +1310,8 @@ g_prc.n
 *	store return address in reserved location
 
 	prc.count = prc.count + 1
-	fetch(w0,minarg_mxs);* pop from stack
-	store(w0, prcent(prc.count))			:(opdone)
+	fetch(w0,arg_mxs);* pop from stack
+	store(w0, minarg(5,prcent(prc.count)))			:(opdone)
 
 *	*   1.12 EXI  _int_	  exit from procedure
 
@@ -1326,7 +1336,7 @@ g_exi
 
 	differ(t2,'n') eq(prc.args)	genop('mov',pc,lr) :s(opdone)
 	t3 = ident(t3) '0'
-	fetch(w0,const(+t3))
+	genop('mov',w0,const(t3))
 	store(w0,rcode)
 	ident(t2,'n')					:s(g_exi.1)
 	genop('mov',pc,lr)				:(opdone)
@@ -1356,10 +1366,12 @@ g_enp	genop()						:(opdone)
 
 g_err
 
-*	Here with return code in rcode. it is zero for normal return and positive for error return.
+*	Here with return code in _rcode_. it is zero for normal return and positive for error return.
 *	Decrement the value. if it is negative then this is normal return. otherwise, proceed, decrementing
 *	_rcode_ until it goes negative,and then take the appropriate branch.
 
+
+	t1 = text(arg1)
 
 *	branch to next case if rcode code still not negative.
 
@@ -1385,12 +1397,13 @@ g_ppm.loop
 
 	ident(incode,'ppm')				:s(g_ppm.loop.ppm)
 
-*	here if error exit via exi. set rcode to exit code and jump to handler with error code in rcode
+*	here if error exit via exi. set rcode to exit code and jump to handler with error code in _rcode_
 
 g_ppm.loop.err
 
-	fetch(w0,const(t1))
-	store(w0,'rcode')
+* output = 'ppm.loop ' t1
+	fetch(w0,minarg(1,const(t1)))
+	store(w0,rcode)
 	jump(,'err_')
 							:(g_ppm.loop.next)
 g_ppm.loop.ppm
@@ -1423,7 +1436,7 @@ g_erb
 *	set rcode to error code and branch to error handler
 
 	genop('mov',w0,const(text(arg1)))
-	store(w0,'rcode')
+	store(w0,rcode)
 	jump(,'err_')					:(opdone)
 
 g_ssl
@@ -1551,11 +1564,11 @@ g_sec.7
 *	allow for some extra cases in case of max.err bad estimate
 
 	n1 = max.err + 8
-	output = '  max.err ' max.err
+*	output = '  max.err ' max.err
 	genopl('err_')
 	genop('mov',w0,wa);* set up to exchange wa and rcode
-	fetch(w0,minarg(5,'rcode'))
-	store(wa,minarg(5,rcode))
+	fetch(w0,rcode)
+	store(wa,rcode)
 	genop('mov',wa,w0)				:(opdone)
 
 
@@ -1630,22 +1643,21 @@ g_dcv
 
 g_zer
 
-	fetch(w0,arg1)
-	genop('xor',w0,w0)
-	store(w0,arg1)
+	genop('xor',w1,w1)
+	store(w1,arg1)
 							:(opdone)
 
-*	*   1.19 MNZ   _opn_ move
+*	*   1.19 MNZ   _opn_ 
 
-*	Any non-zero collectable value may used, for which the opcodes _bnz_/_bze_ will branch/fail
-*	to branch.
+*	Make operand non zero.  Any non-zero collectable value may used, for which the opcodes
+*	_bnz_/_bze_ will branch/fail to branch.
 
 
 g_mnz
 
-	fetch(argreg,arg1)
-	genop('xor',argreg,argreg)
-	store(argreg,xs)
+	genop('xor',w0,w0)
+	genop('add',w0,const(1))
+	store(w0,arg1)
 							:(opdone)
 
 *	1.20 SSL   _opw_	  subroutine stack load
@@ -1695,12 +1707,14 @@ g_mnz
 
 g_add
 
-	isreg(arg1) isreg(arg2)				:s(g_add_reg_reg)
-	isreg(arg1)					:s(g_add_reg_other)
+*	optimize after bootstrap
+
+*	isreg(arg1) isreg(arg2)				:s(g_add_reg_reg)
+*	isreg(arg1)					:s(g_add_reg_other)
 	fetch(w1,arg1)
 	fetch(w2,arg2)
 	genop('add',w1,w1,w2)
-	store(w1,arg1)
+	store(w1,arg1)					:(opdone)
 
 g_add_reg_reg
 
@@ -1717,11 +1731,13 @@ g_add_reg_other
 
 g_sub
 
-	isreg(arg1) isreg(arg2)				:s(g_sub_reg_reg)
-	isreg(arg1)					:s(g_sub_reg_other)
+*	optimize after bootstrap
+
+*	isreg(arg1) isreg(arg2)				:s(g_sub_reg_reg)
+*	isreg(arg1)					:s(g_sub_reg_other)
 	fetch(w1,arg1)
 	fetch(w2,arg2)
-	genop('sub',w1,w1,w2)
+	genop('sub',w1,w1,w2)				:(opdone)
 
 g_sub_reg_reg
 
@@ -2353,9 +2369,10 @@ g_plc
 g_psc
 
 	fetch(w1,arg1)
-	ident(arg2) genop('xor',w2,w2)
-	differ(arg2) fetch(w2,arg3)
-	genop('add',w1,w2,'cfp_f')			:(opdone)
+	eq(type(arg2)) 	genop('xor',w2,w2);* no opv
+	ne(type(arg2)) 	fetch(w2,arg2)
+	genop('add',w1,w1,w2,'cfp_f')			
+	store(w1,arg1)					:(opdone)
 
 *	6.3	 LCH  _reg,opc_
 
@@ -2396,7 +2413,7 @@ g_csc
 
 							:(opdone)
 
-*  ## CMD and CNE
+*  ## CEQ and CNE
 
 *	The following instructions are used to compare two words containing CFP$C characters.
 
@@ -2408,23 +2425,25 @@ g_csc
 
 *	6.6	 CEQ   _opw,opw,plbl_
 
-*	Jump to _plbl_	_opw_ eq  _opw_
+*	Jump to _plbl_ if _opw_ eq  _opw_
 
 g_ceq
 
 	fetch(w1,arg1)
-	fetch(w2,arg3)
+	fetch(w2,arg2)
 	genop('cmp',w1,w2)
-	ident(incode,'ceq') jump('eq',arg3)
-	ident(incode,'cne') jump('ne',arg3)
+	jump('eq',arg3)					:(opdone)
 
 *	6.7	 CNE   _opw,opw,plbl_
 
-*	Jump to _plbl_	_opw_ ne  _opw_
+*	Jump to _plbl_	if _opw_ ne  _opw_
 
-g_cne	
+g_cne
 
-							:(g_ceq)
+	fetch(w1,arg1)
+	fetch(w2,arg2)
+	genop('cmp',w1,w2)
+	jump('ne',arg3)					:(opdone)
 
 *	6.8	 CMC  _plbl_,_plbl_
 
@@ -2453,21 +2472,18 @@ g_cmc
 	done_lbl = genlab()
 	
 	genopl(looplbl,'nop')
-	fetch(w1,minarg(10,'(xl)+'))
-	fetch(w2,minarg(10,'(xr)+'))
+	fetch(w1,arg_xlp,'char')
+	fetch(w2,arg_xrp,'char')
 	genop('cmp',w1,w2)
-
 	jump('lt',arg1)
-
 	jump('gt',arg2)
-
 	genop('subs',wa,const(1))
-
 	jump('ne',loop_lbl);* loop back if more characters
 
 *	Here if same, so clear xl and xr, then fall through to next instruction
 
-	genopl(text(done_lbl),'xor',xl,xl)
+	genopl(done_lbl)
+	genop('xor',xl,xl)
 	genop('xor',xr,xr)
 							:(opdone)
 
@@ -2493,22 +2509,19 @@ g_trc
 
 	loop_lbl = genlab()
 	done_lbl = genlab()
+	fetch(w2,arg_xri,'char');*char ptr to translate table
 	
-	genop('adr',w0,minop(0,'(xr)'));* address of translate table
-
-	genopl(looplbl,'nop')
-
-	fetch(w0,arg_xli);* start of translate table
-	fetch(w1,minarg_xlp,'char');* get next character to translate
-	genop('add',w1,w0,w1);* get addr of replacement character
-	genop('ldrb',w1,'[' w1 ']', 'char');* get replacement character
-	store(w1,minarg_xli,'char')
-	genop('subs',wa,const(1))
-	jump('ne',loop_lbl);* loop back if more characters
+	genopl(loop_lbl)
+		fetch(w1,arg_xlp);* next char
+		genop('add',w2,w2,w1);* replacement character
+		store(w2,arg_xli,'char')
+		genop('subs',wa,const(1))
+		jump('ne',loop_lbl);* loop back if more characters
 	
 *	Here when done, so clear xl and xr, then fall through to next instruction
 
-	genopl(done_lbl,'xor',xl,xl)
+	genopl(done_lbl)
+	genop('xor',xl,xl)
 	genop('xor',xr,xr)
 							:(opdone)
 *	6.10 FLC  _w_
@@ -2583,9 +2596,9 @@ g_rsh
 
 g_lsh
 
-	reg = text(arg1)
-	fetch(w1,arg(2))
-	genop('lsl',reg,reg,w1)				:(opdone)
+	fetch(w1,arg2)
+	genop('lsl',w1,const(text(arg2)))
+	genop('mov',text(arg1),w1)			:(opdone)
 
 *	7.7	 RSX  _w,(x)_
 
@@ -2593,9 +2606,9 @@ g_lsh
 
 g_rsx
 
-	reg = text(arg1)
-	fetch(w1,arg(2))
-	genop('lsr',reg,reg,w1)				:(opdone)
+	fetch(w1,arg2)
+	genop('lsr',w1,const(text(arg2)))
+	genop('mov',text(arg1),w1)			:(opdone)
 
 
 *	7.9	 NZB  _w,plbl_
@@ -2828,14 +2841,15 @@ g_mvc
 
 	loopc = genlab()
 	fetch(wb,arg_xlp,'char')
-	store(wb,min_xrp,'char')
+	store(wb,arg_xrp,'char')
 	genop('str',wb,'dumpb')
 
 	genopl(loopc)
-		gen_sch(wb,arg_xrp)
-		subs(wa,const(1))
+		fetch(wb,arg_xrp,'char')
+		store(wb,arg_xlp,'char')
+		genop('subs',wa,const(1))
 		jump('mi',loopc)
-	fetch(wb,'dumpb')
+	genop('ldr',wb,'dumpb')
 
 	z_suspend = 0
 							:(opdone)
@@ -2872,7 +2886,7 @@ g_mvw
 		genopl(loopw)
 		fetch(w0,arg_xlp)
 		store(w0,arg_xrp)
-		subs(wa,wa,const('cfp_b'))
+		genop('subs',wa,const('cfp_b'))
 		jump('ne',loopw)
 
 	z_suspend = 0
@@ -2902,7 +2916,7 @@ g_mwb
 		genopl(loopb)
 		fetch(w0,arg_mxr)
 		store(w0,arg_mxl)
-		subs(wa,wa,const('cfp_b'))
+		genop('subs',wa,const('cfp_b'))
 		jump('ne',loopb)			:(opdone)
 
 *	9.4	 MCB
@@ -2938,7 +2952,7 @@ g_mcb
 	genopl(loopc)
 		fetch(wb,arg_mxl,'char')
 		store(wb,arg_mxr,'char')
-		subs(wa,const(1))
+		genop('subs',wa,const(1))
 		jump('mi',loopc)
 	fetch(wb,'dumpb')
 
@@ -3028,6 +3042,7 @@ g_dtc
 
 *	change first and last chars to " (assume / used in source)
 
+* output = 'g_d'
 	t1 = text(arg1)
 	t1 tab(1) rtab(1) . t2
 	t3 = remdr(size(t2),cfp_c)

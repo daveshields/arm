@@ -1653,7 +1653,7 @@
 .def   .cicc                 define to ignore unrecognised control card
 .def   .cinc                 define to include -include control card
 .def   .ciod                 if defined, default delimiter is
-.def   .cmth                 define to include extended math functions
+*def   .cmth                 define to include extended math functions
 .def   .cnbf                 define to omit buffer extension
 .def   .cnbt                 define to omit batch initialisation
 *      .cnci                 define to enable sysci routine
@@ -9078,8 +9078,8 @@ ini13  jsr  sysdc            call date check
        mov  r_cod,xr         set ptr to first code block
        mov  r_ttl,=nulls     forget title
        mov  r_stl,=nulls     forget sub-title
-       zer  r_cim            forget compiler input image
        zer  r_ccb            forget interim code block
+       zer  r_cim            forget compiler input image
 .if    .cinc
        zer  cnind            in case end occurred with include
        zer  lstid            listing include depth
