@@ -140,16 +140,31 @@ const
 
 const_end
 -stitl	flush
-	define('flush()')				:(flush_end)
-
-*	here to emit  attach input label and comment to first instruction generated.
+-stitl	flush
+	define('flush()i')				:(flush_end)
 
 flush
 
-*	output the current statement
+ outfile = 'enter flush ' stmts.n
+*	attach input label and comment to first instruction generated and generate stmts.
+
+	eq(stmts.n)					:s(return)
+
+*	here if some statements to emit, so output single 'null' statement 
+*	to get label and comment field right.
 
 	label = thislabel =
-	outstmt(tstmt())				:(return)
+	i = 1
+
+flush_1
+
+	ident(stmts[i])					:s(flush_2)
+	outstmt(stmts[i])
+	le(i = i + 1, stmts.n)				:s(flush_1)
+
+flush_2
+
+	stmts.n =					:(return)
 
 flush_end
 -stitl genz
@@ -183,14 +198,17 @@ genz_end
 	define('comregs(line)t,pre,word')		:(comregs_end)
 
 *	map minimal register names to target register names
+*	Since same names used for both in this version, no need to change comment.
 
 comregs
-
+	
 	line p.comregs =				:f(comregs1)
 	word = eq(size(word),2) differ(t = word) t
 	comregs = comregs pre word			:(comregs)
 
-comregs1 comregs = comregs line				:(return)
+comregs1 
+
+	comregs = comregs line				:(return)
 
 comregs_end
 -stitl error(text)
@@ -220,8 +238,9 @@ error_end
 
 fetch
 
-	ident(datatype(iarg),'string') genop('FETCH-str' kind,reg, text(iarg))
-	genop('FETCH' kind,reg,text(iarg))		:(return)
+	ident(datatype(iarg),'string')  genop('FETCH' kind,reg, iarg)
+	differ(datatype(iarg),'string') genop('FETCH' kind,reg,text(iarg))
+			:(return)
 * output = 'fetch reg<' reg '> type<' type(iarg) '> text <' text(iarg) '> kind <' kind '>'
 	genmem('ldr',reg,iarg,kind)			:(return)
 
@@ -266,7 +285,7 @@ genmem
 genmem_1
 genmem_2
 
-	genop(op, '=' text(iarg))				:(return)
+	genop(op, reg, '=' text(iarg))				:(return)
 
 genmem_3
 genmem_4
@@ -297,6 +316,7 @@ genmem_10
 
 *	ident(text(iarg),'(xs)+) genop('pop','{' reg '})	:s(return)
 	
+	base = substr(iarg,2,2)
 	offset = (ident(kind),'cfp_b',1)
 	genop(op,reg, '[' base  '],' const(offset))		:(return)
 
@@ -305,6 +325,7 @@ genmem_11
 *	-(x), register indirect, pre decrement
 
 	offset = (ident(kind),'cfp_b',1)
+	base = substr(iarg,3,2)
 	genop(op,reg, '[' base ','  const(offset) ']!')		:(return)
 
 genmem_12
@@ -325,17 +346,25 @@ genmem_15
 	genop(op,reg,'[' base, ',' const(offset) ']')		:(return) 
 
 genmem_18
+*	=dlbl
 genmem_20
+*	=wlbl
 genmem_21
+*	=clbl
 genmem_22
+*	=elbl
 
-	genop('adr',reg,text(iarg))				:(return)
+*	Types 18, 20,22 are all in text section and so are treated the same.
 
+	genop(op,reg,substr(text(iarg),2))			:(return)
+
+getarg_c.19
 genmem_19
 
-	genop('adr',reg,text(iarg))
-	genop('lsl',reg,'lsl 2')				:(return)
+*	*dlbl
 
+	gen(op,reg,const('cfp_b*' substr(text(iarg,2)))) 	:(return)
+ 
 genmem_23
 genmem_24
 genmem_26
@@ -353,7 +382,14 @@ genmem_end
 
 genopl
 
-	outstmt(tstmt(gopl,gopc,gop1,gop2,gop3))	:(return)
+* output = 'genopl ' input_lines
+* output = 'genopl ' datatype(gopl) ':' datatype(gopc) tab datatype(gop1) ',' datatype(gop2) ',' datatype(gop3) 
+* output = 'genopl ' gopl 
+* output = 'genopl ' gopc
+* output = 'genopl ' gop1
+* output = 'genopl ' gop2
+* output = 'genopl ' gop3
+	stmts[stmts.n = stmts.n + 1] = tstmt(gopl,gopc,gop1,gop2,gop3) :(return)
 
 genopl_end
 -stitl genop(gopc,gop1,gop2,gop3)
@@ -425,7 +461,14 @@ init
 *	as part of a branch.
 
 	pc = 'pc'
-	PC = pc
+	PC = 'PC'
+
+*	rcode is used to hold return code value from subroutine call.
+
+*	use register for rcode since value not needed by osint (unless zz_trace is used, and
+*	it not being used for bootstrap).
+
+	rcode = 'rc'
 
 * symbolic target assignments
 
@@ -520,10 +563,6 @@ config_done
 	arg_xsp = minarg(10,'(xs)+')
 	arg_mxs = minarg(11,'-(xs)')
 
-*	rcode is used to hold return code value from subroutine call.
-
-	rcode = minarg(5,'_rc_')
-
 	data('tstmt(t.label,t.opc,t.op1,t.op2,t.op3,t.comment)')
 
 	sectnow = 0
@@ -541,6 +580,11 @@ config_done
 *	labtab records labels in the code section, and their line numbers
 
 	labtab = table(500)
+
+*	for each minimal statement, code is generated into array stmts of assembler statements
+*	since multiple statements may be needed for a single minimal statement.
+
+	stmts = array(20,'')
 
 *	genlabels is count of generated labels (cf. genlab)
 
@@ -817,9 +861,10 @@ prcent_end
 
 outstmt 
 
+	label = t.label(ostmt)
+
 *	clear label if definition already emitted
 
-	label = t.label(ostmt)
 	label = ident(label, lastlabel)
 
 outstmt1
@@ -837,9 +882,7 @@ outstmt2
 	op2 = t.op2(ostmt)
 	op3 = t.op3(ostmt)
 	differ(compress)				:s(outstmt3)
-*	output = datatype(op1) ' ' datatype(op2) ' ' datatype(op3)
-* output = ' opcode ' opcode ' op1 <' op1  '> op2 <' op2  '>'
-* output = differ(op3)  output  '  op3 <' op3 '>'
+* outfile = datatype(label) ':' datatype(opcode) tab datatype(op1) ',' datatype(op2) ',' datatype(op3)
 	line = rpad( rpad(label,7) ' ' rpad(opcode,4) ' '
 .		  (ident(op1), op1
 .			(ident(op2), ',' op2
@@ -855,6 +898,8 @@ outstmt3
 outstmt4
 
 	line = trim(line)
+	ident(line)					:s(outstmt5)
+	ident(comment)					:s(outstmt5)
 	line = le(size(line),48) rpad(line,48) '; ' comment:s(outstmt5)
 	line = le(size(line),56) rpad(line,56) '; ' comment:s(outstmt5)
 	line = line '; ' comment
@@ -873,6 +918,7 @@ outstmt5
 
 outstmt6
 
+	ident(line)					:s(return)
 * output =  line
 	outfile = line
 	ntarget = ntarget + 1
@@ -909,7 +955,7 @@ readline
 	input_lines  = input_lines + 1
 	ident( readline )				:f(readline_2)
 
-	outfile = readline
+*	outfile = readline
 	output_lines = output_lines + 1			:(readline)
 
 readline_2
@@ -955,8 +1001,9 @@ skip_init_end
 
 store
 
-	ident(datatype(iarg),'string') genop('STORE-str' kind,reg, text(iarg))
-	genop('STORE' kind,reg,text(iarg))		:(return)
+	ident(datatype(iarg),'string') genop('STORE' kind,reg, iarg)
+	differ(datatype(iarg),'string') genop('STORE' kind,reg,text(iarg))
+	:(return)
 * output = 'store reg<' reg '> type<' type(iarg) '> text <' text(iarg) '> kind <' kind '>'
 	genmem('ldr',reg,iarg,kind)			:(return)
 
@@ -980,8 +1027,8 @@ store_end
 
 *	the generators are listed in a separate section below.
 
-*	&trace = 2000
-*	&ftrace = 1000
+*	&trace = 200000
+*	&ftrace = 100000
 *	&profile = 1
 
 	include('int.h')
@@ -1120,19 +1167,24 @@ g_bsw
 	reg = text(arg1)
 	fetch(w2,arg2)
 	t2 = genlab()
+	eq(type(arg3))					:s(g_bsw1)
 	ident(text(arg3))				:s(g_bsw1)
 
 *	Here if _plbl_, so generate branch to it if out or range
 
 	genop('cmp',reg,w2)
+ outfile = 'g_bsw ' datatype(arg3)
 	jump('ge',arg3)
 
 g_bsw1
 
+ outfile = 'g_bsw1'
 *  here after default case check (if needed).
 
 
-	genop('ldr',pc,'[' reg ',cfp_b*' const(text(arg2)) ']')
+*	genop('ldr',PC,'[' reg ',' const('cfp_b*' text(arg2)) ']')
+ outfile = 'bsw post ldr'
+*	genop('ldr',PC)
 	z_suspend = 0
 							:(opdone)
 
@@ -1149,7 +1201,7 @@ g_bsw1
 
 g_iff
 
-	genop('.word', plbl)				:(opdone)
+	genop('.word', text(arg2))			:(opdone)
 
 
 *	* 1.5  ESW	end of branch switch table
@@ -2021,10 +2073,15 @@ g_adi
 
 g_mli
 
-	fetch(w1,arg1)
+*	Do via macro call so can properly set overflow bit
+
+	fetch(w0,arg1)
+	genop('mli_')
+							:(opdone)
 
 *	arm doesn't allow destination register and first operand register to be the same, so
 *	swap the order since multiplication is commutative.
+
 
 	genop('muls',wc,w1,wc)			(opdone)
 
