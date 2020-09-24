@@ -1,4 +1,5 @@
 -title mincod						: phase 2 translation from minimal tokens to 80386 code
+
 -stitl description
 
 * use # as start of line for full-line comment
@@ -145,13 +146,12 @@ const_end
 
 flush
 
- outfile = 'enter flush ' stmts.n
 *	attach input label and comment to first instruction generated and generate stmts.
 
 	eq(stmts.n)					:s(return)
 
-*	here if some statements to emit, so output single 'null' statement 
-*	to get label and comment field right.
+*	here if some statements to emit, so output single 'null' statement to get label and
+*	comment field right.
 
 	label = thislabel =
 	i = 1
@@ -238,9 +238,9 @@ error_end
 
 fetch
 
-	ident(datatype(iarg),'string')  genop('FETCH' kind,reg, iarg)
-	differ(datatype(iarg),'string') genop('FETCH' kind,reg,text(iarg))
-			:(return)
+*	ident(datatype(iarg),'string')  genop('FETCH' kind,reg, iarg)
+*	differ(datatype(iarg),'string') genop('FETCH' kind,reg,text(iarg))
+*			:(return)
 * output = 'fetch reg<' reg '> type<' type(iarg) '> text <' text(iarg) '> kind <' kind '>'
 	genmem('ldr',reg,iarg,kind)			:(return)
 
@@ -282,6 +282,10 @@ genmem
 
 
 								:($('genmem_' type(iarg)))
+genmem_0
+
+	error('unexpected genmem type 0')			:(return)
+
 genmem_1
 genmem_2
 
@@ -307,7 +311,7 @@ genmem_9
 
 *	(x), register indirect
 
-	genop(op,reg, '[' text(iarg) ']')
+	genop(op,reg, '[' substr(text(iarg),2,2) ']')
 								:(return)
 
 genmem_10
@@ -316,17 +320,16 @@ genmem_10
 
 *	ident(text(iarg),'(xs)+) genop('pop','{' reg '})	:s(return)
 	
-	base = substr(iarg,2,2)
-	offset = (ident(kind),'cfp_b',1)
-	genop(op,reg, '[' base  '],' const(offset))		:(return)
+	base = substr(text(iarg),2,2)
+	offset = const((ident(kind),'cfp_b',1))
+	genop(op,reg, '[' base  '],' offset)		:(return)
 
 genmem_11
 
 *	-(x), register indirect, pre decrement
 
-	offset = (ident(kind),'cfp_b',1)
-	base = substr(iarg,3,2)
-	genop(op,reg, '[' base ','  const(offset) ']!')		:(return)
+	offset = const((ident(kind) '1', 'cfp_b'))
+	genop(op,reg,'[' base ',' const ']!')
 
 genmem_12
 genmem_13
@@ -356,14 +359,21 @@ genmem_22
 
 *	Types 18, 20,22 are all in text section and so are treated the same.
 
-	genop(op,reg,substr(text(iarg),2))			:(return)
+	genop('adr',reg,substr(text(iarg),2))			:(return)
+*	genop(op,reg,substr(text(iarg),2))			:(return)
 
 getarg_c.19
 genmem_19
 
 *	*dlbl
 
-	gen(op,reg,const('cfp_b*' substr(text(iarg,2)))) 	:(return)
+*	Generate label for operand, and record operand in dacops table.
+
+	dacops.n = dacops.n + 1
+	offset = 'd_' lpad(dacops.n,4,'0')
+	base = 'cfp_b*' substr(text(iarg),2)
+	dacops[dacops.n] = base
+	genop('adr',reg,offset)				:(return)
  
 genmem_23
 genmem_24
@@ -382,13 +392,6 @@ genmem_end
 
 genopl
 
-* output = 'genopl ' input_lines
-* output = 'genopl ' datatype(gopl) ':' datatype(gopc) tab datatype(gop1) ',' datatype(gop2) ',' datatype(gop3) 
-* output = 'genopl ' gopl 
-* output = 'genopl ' gopc
-* output = 'genopl ' gop1
-* output = 'genopl ' gop2
-* output = 'genopl ' gop3
 	stmts[stmts.n = stmts.n + 1] = tstmt(gopl,gopc,gop1,gop2,gop3) :(return)
 
 genopl_end
@@ -463,12 +466,19 @@ init
 	pc = 'pc'
 	PC = 'PC'
 
+
+*	minarg represents an argument to minimal instruction. _type_ is the
+*	argument's type as operands format of the minimal specification.
+*	_text_ is the actual text of the argument.
+
+	data('minarg(type,text)')
+
 *	rcode is used to hold return code value from subroutine call.
 
 *	use register for rcode since value not needed by osint (unless zz_trace is used, and
 *	it not being used for bootstrap).
 
-	rcode = 'rc'
+	rcode = minarg(5,'rc')
 
 * symbolic target assignments
 
@@ -488,8 +498,9 @@ init
 	real_op['sqr'] = 'fsqrt'
 	real_op['str'] = 'fst'
 
-config_done
+*	dacops is used for operand types 19 - *dlbl
 
+	dacops = table(250)
 
 *	set z_trace to enable instruction by instruction trace
 	z_trace = 1
@@ -539,13 +550,6 @@ config_done
 *	skip_init('srpl5:srpl8')
 
 *	data structures
-
-*	minarg represents an argument to minimal instruction. _type_ is the
-*	argument's type as operands format of the minimal specification.
-*	_text_ is the actual text of the argument.
-
-	data('minarg(type,text)')
-
 *	following instances of minarg used for character operations.
 
 	arg_xl = minarg(7,'xl')
@@ -1001,16 +1005,16 @@ skip_init_end
 
 store
 
-	ident(datatype(iarg),'string') genop('STORE' kind,reg, iarg)
-	differ(datatype(iarg),'string') genop('STORE' kind,reg,text(iarg))
-	:(return)
+*	ident(datatype(iarg),'string') genop('STORE' kind,reg, iarg)
+*	differ(datatype(iarg),'string') genop('STORE' kind,reg,text(iarg))
+*	:(return)
 * output = 'store reg<' reg '> type<' type(iarg) '> text <' text(iarg) '> kind <' kind '>'
-	genmem('ldr',reg,iarg,kind)			:(return)
+	genmem('str',reg,iarg,kind)			:(return)
 
 store_end
 -stitl main program
 
-	output = 'start main program execution DS'
+***	output = 'start main program execution DS'
 *	here follows the driver code for the "main" program.
 
 	init()
@@ -1628,10 +1632,10 @@ g_sec.7
 opdone
 
 	flush()						:(opnext)
-opdone.end
+
 g_end
 
-	&dump = 2
+*	&dump = 3
 	&dump = 0
 	ident(havehdr)					:s(g_end.2)
 
@@ -1646,28 +1650,43 @@ g_end.1
 
 g_end.2
 
+*	copy out any entries in dacops
+
+	i = 0
+g_end.3
+
+	gt(i = i + 1,dacops.n)				:s(g_end.4)
+	lbl = 'd_' lpad(i,4,'0')
+	outfile =  lbl ':' tab '.word' tab dacops<i>
+							:(g_end.3)
+*	genopl(lbl)
+*	genop('.word',dacops[i])			:(g_end.3)
+
+g_end.4
+
 *	here at end of code generation.
 
-	endfile(1)
-	endfile(2)
-	endfile(3)
+	&code	= ne(nerrors) 2001
 	report(input_lines,	'lines read')
 	report(nstmts,		'statements processed')
 	report(ntarget,		'target code lines produced')
 	report(&stcount,	'spitbol statements executed')
 	report(max.err,		'maximum err/erb number')
 	report(prc.count1,	'prc count')
+	report(dacops.n,	'dac cfp*d_lbl entries')
 	output	= '  ' gt(prc.count,prc.count1)
 .	  '  differing counts for n-procedures:'
 .	  ' inp ' prc.count1 ' prc ' prc.count
 	differ(nerrors) report(nerrors,'errors detected')
 
+	endfile(1)
+	endfile(2)
+	endfile(3)
+
 	errfile = '* ' max.err ' maximum err/erb number'
 	errfile	= '* ' prc.count ' prc count'
 .		differ(lasterror) '  the last error was in line ' lasterror
 
-	&code	= ne(nerrors) 2001
-	report(collect(), 'free words')
 							:(end)
 *	1.16 ICV   _opn_  increment value by one
 
@@ -1685,7 +1704,7 @@ g_icv
 g_dcv
 
 	fetch(w0,arg1)
-	genop('dec',w0,const(1))			
+	genop('sub',w0,w0,const(1))
 	store(w0,arg1)
 							:(opdone)
 
@@ -3022,8 +3041,8 @@ g_mcb
 
 *	The stack builds downward in this implementation.
 
-*	The starting stack base address is passed in (XS) at The start of execution.
-	During execution it is necessary to make sure that the stack does not overflow.
+*	The starting stack base address is passed in (XS) at the start of execution.
+*	During execution it is necessary to make sure that the stack does not overflow.
 *	This is achieved by executing the following instruction periodically.
 
 *	10.1 CHK
