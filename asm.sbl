@@ -1,5 +1,4 @@
 -title mincod						: phase 2 translation from minimal tokens to 80386 code
-
 -stitl description
 
 * use # as start of line for full-line comment
@@ -190,7 +189,7 @@ genz
 
 	z_desc = '"' replace(thisline,sepchar,' ') '"'
 	outfile = tab 'zzz' tab z_count ',' input_lines ',' z_desc
-	outlines = outlines + 1
+	output_lines = output_lines + 1
 							:(return)
 
 genz_end
@@ -202,6 +201,8 @@ genz_end
 
 comregs
 	
+	comregs = line					:(return)
+
 	line p.comregs =				:f(comregs1)
 	word = eq(size(word),2) differ(t = word) t
 	comregs = comregs pre word			:(comregs)
@@ -226,7 +227,7 @@ error
 * output = 'error datatype filenami ' datatype(filenami)
 *	outfile = rpad(lpad(input_lines,6),size(filenami) -1) ' | ' thisline
 	lasterror = output_lines
-	output_lines = output_lines + 2
+	output_lines = output_lines + 1
 	le(nerrors = nerrors + 1, 10)			:s(opnext)
 	output = 'too many errors, quitting'		:(end)
 
@@ -795,21 +796,21 @@ jump_6
 * 	elbl,pbl
 
 *	genop('adr' cond,w0,lbl)
-	genop('mov' cond,pc,lbl)			:(return)
+	genop('mov' cond,PC,lbl)			:(return)
 
 jump_7
 jump_8
 
 *	w,x, map register name
 
-	genop('mov' cond, pc, text(iarg))		:(return)
+	genop('mov' cond, PC, text(iarg))		:(return)
 
 jump_9
 
 *	(x), register indirect
 
 	fetch(w0,iarg)
-	genop('mov' cond, pc, w0)			:(return)
+	genop('mov' cond, PC, w0)			:(return)
 
 jump_10
 jump_11
@@ -818,7 +819,7 @@ jump_11
 *	-(x), register indirect, pre decrement
 
 	fetch(w0,iarg)	
-	genop('mov' cond, pc, '[' w0 ']')		:(return)	
+	genop('mov' cond, PC, '[' w0 ']')		:(return)	
 
 jump_12
 jump_13
@@ -827,7 +828,7 @@ jump_13
 *	dlbl(x)
 
 	fetch(w0,iarg)
-	genop('mov' cond, pc, '[' w0 ']')		:(return)
+	genop('mov' cond, PC, '[' w0 ']')		:(return)
 
 jump_err
 jump_1
@@ -875,10 +876,6 @@ outstmt1
 
 *	attach source comment to first generated instruction
 
-	differ(comment)					:s(outstmt2)
-	ident(tcomment)					:s(outstmt2)
-	comment = tcomment; tcomment =
-
 outstmt2
 
 	opcode = t.opc(ostmt)
@@ -903,14 +900,17 @@ outstmt4
 
 	line = trim(line)
 	ident(line)					:s(outstmt5)
-	ident(comment)					:s(outstmt5)
-	line = le(size(line),48) rpad(line,48) '; ' comment:s(outstmt5)
-	line = le(size(line),56) rpad(line,56) '; ' comment:s(outstmt5)
-	line = line '; ' comment
+	ident(incomment)				:s(outstmt5)
+	line = le(size(line),48) rpad(line,48) '@ ' incomment:s(outstmt5)
+	line = le(size(line),56) rpad(line,56) '@ ' incomment:s(outstmt5)
+	line = line '; ' incomment
 
 outstmt5
-**
-**	send text to output file if not null.
+
+*	set incomment to null so only first assembly statement generated for a minimall
+*	statement has the comment.
+
+	incomment =
 
 *	     line = replace(trim(line),'$','_')
 
@@ -923,9 +923,7 @@ outstmt5
 outstmt6
 
 	ident(line)					:s(return)
-* output =  line
 	outfile = line
-	ntarget = ntarget + 1
 	output_lines = output_lines + 1
 
 *	record code labels in table with delimiter removed.
@@ -971,7 +969,7 @@ readline_2
 	z_skip = ident(readline,'*z+') 0		:s(readline)
 	z_skip = ident(readline,'*z-') 1		:s(readline)
 
-	outfile = ';' substr(readline,2)
+	outfile = '#' substr(readline,2)
 	output_lines = output_lines + 1			:(readline)
 
 readline_eof
@@ -1061,7 +1059,7 @@ opnext
 
 	ident(incode,'ent')				:s(opnext.1)
 	outfile = thislabel
-	outlines = outlines + 1
+	output_lines = output_lines + 1
 
 *	set lastlabel so can check to avoid emitting duplicate label definitions
 
@@ -1077,7 +1075,7 @@ opnext.1
 	arg1 = prsarg(iarg1)
 	arg2 = prsarg(iarg2)
 	arg3 = prsarg(iarg3)
-	tcomment = comregs(incomment) '} ' incode ' ' text(arg1) ' ' text(arg2) ' ' text(arg3)
+*	tcomment = comregs(incomment)  incode ' ' text(arg1) ' ' text(arg2) ' ' text(arg3)
 	argerrs = 0
 * output = 'bad incode ' incode
 							:($('g_' incode))
@@ -1251,7 +1249,7 @@ g_ent.1
 
 g_ent.2
 
-	outlines = outlines + 2
+	output_lines = output_lines + 2
 	genopl(thislabel)
 	
 *	here to see if want label made public
@@ -1644,7 +1642,6 @@ g_end
 g_end.1
 
 	line = hdrfile					:f(g_end.2)
-	ntarget = ntarget + 1
 	output_lines = output_lines + 1
 	outfile = line					:(g_end.1)
 
@@ -1667,9 +1664,9 @@ g_end.4
 *	here at end of code generation.
 
 	&code	= ne(nerrors) 2001
-	report(input_lines,	'lines read')
+	report(input_lines,	'input lines read')
 	report(nstmts,		'statements processed')
-	report(ntarget,		'target code lines produced')
+	report(output_lines,	'output code lines produced')
 	report(&stcount,	'spitbol statements executed')
 	report(max.err,		'maximum err/erb number')
 	report(prc.count1,	'prc count')
@@ -1914,7 +1911,6 @@ g_bop
 g_bnz
 
 	fetch(w1,arg1)
-	genop('adr',text(arg3))
 	genop('ors',w1,w1)
 	jump('ne',arg2)					:(opdone)
 
@@ -3173,7 +3169,7 @@ decend
 
 g_equ
 
-	genop('.set',thislabel ',' , text(arg1))	:(opdone)
+	genop('.set',thislabel, text(arg1))	:(opdone)
 
 *	12.2 _exp_
 

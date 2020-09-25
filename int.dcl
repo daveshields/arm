@@ -16,6 +16,9 @@
 #     you should have received a copy of the gnu general public license
 #     along with macro spitbol.	 if not, see <http://www.gnu.org/licenses/>.
 #
+
+	.include "int.h"
+
 	section	.text
 	.code	32
 
@@ -60,9 +63,9 @@
 #   table to recover type word from type ordinal
 #
 
-	.extern	_rc_
-	.global	typet
-	section .data
+	.extern		_rc_
+	.global		typet
+	.section 	data
 
 	.word	b_art	@ arblk type word - 0
 	.word	b_cdc	@ cdblk type word - 1
@@ -109,7 +112,7 @@ calltab:
 	.word	reloc
 	.word	alloc
 	.word	alocs
-	.word	alost
+	.word	alost 
 	.word	blkln
 	.word	insta
 	.word	rstrt
@@ -196,52 +199,53 @@ calltab:
 
 #	integer arithmetic instructions
 	.extern	cvd__
-	%macro	cvd_	0
+	%macro	cvd_
 	call	cvd__
 	%endmacro
 
 
-	%macro	adi_	1
-	add	ia,%1
-	seto	byte [reg_fl]
-	%endmacro
-	.extern	dvi__
-	%macro	dvi_	1
-	call	dvi__
-	%endmacro
+#	%macro	adi_	arg
+#	add	ia,\arg
+#	seto	byte [reg_fl]
+#	%endmacro
+#
+#	.extern	dvi__
+#	%macro	dvi_	arg
+#	call	dvi__
+#	%endmacro
+#
+#	.extern	rmi__
+#	%macro	rmi_	arg
+#	mov	rax,r1
+#	call	rmi__
+#	%endmacro
+#
 
-	.extern	rmi__
-	%macro	rmi_	1
-	mov	rax,%1
-	call	rmi__
-	%endmacro
-
-
-	%macro	ino_	1
-	mov	al,byte [reg_fl]
-	or	al,al
-	jno	%1
-	%endmacro
-
-	%macro	iov_	1
-	mov	al,byte [reg_fl]
-	or	al,al
-	jo	%1
-	%endmacro
-
-	%macro	ldi_	1
-	mov	ia,%1
-	%endmacro
-
-	%macro	mli_	1
-	imul	ia,%1
-	seto	byte [reg_fl]
-	%endmacro
-
-	%macro	ngi_	0
-	neg	ia
-	seto	byte [reg_fl]
-	%endmacro
+#	%macro	ino_	arg
+#	mov	al,byte [reg_fl]
+#	or	al,al
+#	jno	%1
+#	%endmacro
+#
+#	%macro	iov_	arg
+#	mov	al,byte [reg_fl]
+#	or	al,al
+#	jo	%1
+#	%endmacro
+#
+#	%macro	ldi_	arg
+#	mov	ia,\arg
+#	%endmacro
+#
+#	%macro	mli_	arg
+#	imul	ia,\arg
+#	seto	byte [reg_fl]
+#	%endmacro
+#
+#	%macro	ngi_	0
+#	neg	ia
+#	seto	byte [reg_fl]
+#	%endmacro
 
 	.extern	f_rti
 	%macro	rti_	0
@@ -249,55 +253,55 @@ calltab:
 	mov	ia,m_word [reg_ia]
 	%endmacro
 
-	%macro	sbi_	1
-	sub	ia,%1
-	mov	rax,0
-	seto	byte [reg_fl]
-	%endmacro
-
-	%macro	sti_	1
-	mov	%1,ia
-	%endmacro
+#	%macro	sbi_	1
+#	sub	ia,%1
+#	mov	rax,0
+#	seto	byte [reg_fl]
+#	%endmacro
+#
+#	%macro	sti_	1
+#	mov	%1,ia
+#	%endmacro
 
 #	code pointer instructions (cp maintained in location reg_cp)
 
 	.extern	reg_cp
 
-	%macro	lcp_	1
-	mov	rax,%1
-	mov	m_word [reg_cp],rax
-	%endmacro
-
-	%macro	lcw_	1
-	mov	rax,m_word [reg_cp]		@ load address of code word
-	mov	rax,m_word [rax]		@ load code word
-	mov	%1,rax
-	mov	rax,m_word [reg_cp]		@ load address of code word
-	add	rax,cfp_b
-	mov	m_word [reg_cp],rax
-	%endmacro
-
-	%macro	scp_	1
-	mov	rax,m_word [reg_cp]
-	mov	%1,rax
-	%endmacro
-
-	%macro	icp_	0
-	mov	rax,m_word [reg_cp]
-	add	rax,cfp_b
-	mov	m_word [reg_cp],rax
-	%endmacro
-
-	%macro	rov_	1
-	mov	al,byte [reg_fl]
-	or	al,al
-	jne	%1
-	%endmacro
-
-	%macro	rno_	1
-	mov	al,byte [reg_fl]
-	or	al,al
-	je	%1
-	%endmacro
+#	%macro	lcp_	1
+#	mov	rax,%1
+#	mov	m_word [reg_cp],rax
+#	%endmacro
+#
+#	%macro	lcw_	1
+#	mov	rax,m_word [reg_cp]		@ load address of code word
+#	mov	rax,m_word [rax]		@ load code word
+#	mov	%1,rax
+#	mov	rax,m_word [reg_cp]		@ load address of code word
+#	add	rax,cfp_b
+#	mov	m_word [reg_cp],rax
+#	%endmacro
+#
+#	%macro	scp_	1
+#	mov	rax,m_word [reg_cp]
+#	mov	%1,rax
+#	%endmacro
+#
+#	%macro	icp_	0
+#	mov	rax,m_word [reg_cp]
+#	add	rax,cfp_b
+#	mov	m_word [reg_cp],rax
+#	%endmacro
+#
+#	%macro	rov_	1
+#	mov	al,byte [reg_fl]
+#	or	al,al
+#	jne	%1
+#	%endmacro
+#
+#	%macro	rno_	1
+#	mov	al,byte [reg_fl]
+#	or	al,al
+#	je	%1
+#	%endmacro
 
 
