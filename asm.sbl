@@ -2088,17 +2088,15 @@ g_adi
 
 g_mli
 
-*	Do via macro call so can properly set overflow bit
+	fetch(10,arg1)
 
-	fetch(w0,arg1)
-	genop('mli_')
-							:(opdone)
-
-*	arm doesn't allow destination register and first operand register to be the same, so
+*	arm doesn't allow _muls_ destination register and first operand register to be the same, so
 *	swap the order since multiplication is commutative.
 
+	genop('muls',ia,w1,ia)				:(opdone)
 
-	genop('muls',wc,w1,wc)			(opdone)
+
+
 
 *	4.4	 SBI   _ops_
 

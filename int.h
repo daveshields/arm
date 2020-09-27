@@ -27,7 +27,6 @@
 	.set	log_cfp_b,2
 	.set	log_cfp_c,2
 
-	.set	cfp_m_,4294967295:1
-	
+	.set	cfp_m_,4294967295
 	.set	cfp_n_,32
 
