@@ -2126,9 +2126,6 @@ g_dvi
 
 *	Further note that check for divide by zero is not needed for bootstrap.
 
-	fetch(w0,arg1)
-	genop('sdiv',ia,w0)				:(opdone)
-
 	fetch(w1,arg1)
 	genop('sdivs',ia,ia,w1)				:(opdone)
 
@@ -2180,7 +2177,8 @@ g_ino
 *	Jump to _plbl_ if integer overflow
 
 *	These instructions can only occur immediately following an instruction which can cause 
-*	integer overflow (ADI, SBI MLI DVI RMI ngi) and test the result of the preceding instruction.
+
+*	integer overflow (ADI, SBI, MLI, DVI, RMI, and NGI) and test the result of the preceding instruction.
 
 *	IOV and INO may not have labels.
 
