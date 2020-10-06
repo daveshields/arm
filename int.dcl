@@ -185,15 +185,15 @@ calltab:
 	.extern cpr_
 	.extern ovr_
 
-	%macro	zzz	3
-	section	.data
-%%desc:	db	%3,0
-	section	.text
-	mov	m_word [zz_id],%1
-	mov	m_word [zz_zz],%2
-	mov	m_word [zz_de],%%desc
-	call	zzz
-	%endmacro
+#	%macro	zzz	3
+#	section	.data
+#%%desc:	db	%3,0
+#	section	.text
+#	mov	m_word [zz_id],%1
+#	mov	m_word [zz_zz],%2
+#	mov	m_word [zz_de],%%desc
+#	call	zzz
+#	%endmacro
 
 	.extern	reg_ia,reg_wa,reg_fl,reg_w0,reg_wc
 
@@ -247,11 +247,11 @@ calltab:
 #	seto	byte [reg_fl]
 #	%endmacro
 
-	.extern	f_rti
-	%macro	rti_	0
-	call	f_rti
-	mov	ia,m_word [reg_ia]
-	%endmacro
+#	.extern	f_rti
+#	%macro	rti_	0
+#	call	f_rti
+#	mov	ia,m_word [reg_ia]
+#	%endmacro
 
 #	%macro	sbi_	1
 #	sub	ia,%1
@@ -265,7 +265,7 @@ calltab:
 
 #	code pointer instructions (cp maintained in location reg_cp)
 
-	.extern	reg_cp
+#	.extern	reg_cp
 
 #	%macro	lcp_	1
 #	mov	rax,%1

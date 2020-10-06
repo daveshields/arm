@@ -299,7 +299,7 @@ genmem_6
 
 *	wlbl, clbl, elbl, plbl (all labels in text section in arm version)
 
-	genop(op,reg,text(iarg))				:(return)
+	genop(op,reg,'=' text(iarg))				:(return)
 
 genmem_7
 genmem_8
@@ -322,15 +322,16 @@ genmem_10
 *	ident(text(iarg),'(xs)+) genop('pop','{' reg '})	:s(return)
 	
 	base = substr(text(iarg),2,2)
-	offset = const((ident(kind),'cfp_b',1))
-	genop(op,reg, '[' base  '],' offset)		:(return)
+	offset = const((differ(kind),'cfp_b',1))
+	genop(op,reg, '[' base  '],' offset)			:(return)
 
 genmem_11
 
 *	-(x), register indirect, pre decrement
 
-	offset = const((ident(kind) '1', 'cfp_b'))
-	genop(op,reg,'[' base ',' const ']!')
+	base = substr(text(iarg),3,2)
+	offset = const((differ(kind) '-1', '-cfp_b'))
+	genop(op,reg,'[' base ',' offset ']!')			:(return)
 
 genmem_12
 genmem_13
@@ -360,21 +361,15 @@ genmem_22
 
 *	Types 18, 20,22 are all in text section and so are treated the same.
 
-	genop('adr',reg,substr(text(iarg),2))			:(return)
+	genop('mov',reg,text(iarg))				:(return)
 *	genop(op,reg,substr(text(iarg),2))			:(return)
 
-getarg_c.19
 genmem_19
 
 *	*dlbl
 
-*	Generate label for operand, and record operand in dacops table.
-
-	dacops.n = dacops.n + 1
-	offset = 'd_' lpad(dacops.n,4,'0')
-	base = 'cfp_b*' substr(text(iarg),2)
-	dacops[dacops.n] = base
-	genop('adr',reg,offset)				:(return)
+	offset = 'cfp_b*' substr(text(iarg),2)
+	genop('mov',reg,const(offset))				:(return)
  
 genmem_23
 genmem_24
@@ -393,6 +388,9 @@ genmem_end
 
 genopl
 
+*	arm assembler wants colon after statement label.
+
+	gopl = differ(gopl) gopll ':'
 	stmts[stmts.n = stmts.n + 1] = tstmt(gopl,gopc,gop1,gop2,gop3) :(return)
 
 genopl_end
@@ -466,6 +464,8 @@ init
 
 	pc = 'pc'
 	PC = 'PC'
+	lr = 'lr'
+	LR = 'LR'
 
 
 *	minarg represents an argument to minimal instruction. _type_ is the
@@ -768,12 +768,10 @@ include.next
 
 include.end
 -stitl	jump	jump if condition met
-	define('jump(cond,iarg)base,lbl,reg,offset')	:(jump_end)
+	define('jump(cond,iarg)base,lbl,op,reg,offset')	:(jump_end)
 
 *	jump to address given by _iarg_ if condition _cond_ is true.
 *	Jump is effected by moving the desired address to the program counter PC.
-
-jump
 
 *	val	01,02			predefined value
 *	reg	07,08			register
@@ -784,18 +782,21 @@ jump
 *	opv	03,04,0-15,18-22	one word integer value	
 *	addr	01-05			address
 
+jump
+
 *	Some minimal labels end encoded as datatype by the scanner, others aren't.
 
-	lbl = (ident(datatype(iarg),'minarg') text(iarg),iarg)
+	lbl = '=' (ident(datatype(iarg),'minarg') text(iarg),iarg)
 	typ = (ident(datatype(iarg),'minarg') type(iarg),6)
-* output = 'jump typ <' typ '> lbl <' lbl '>'
+	op = 'mov' cond
+* outfile = 'jump cond  ' cond '  typ <' typ '> lbl <' lbl '>'
 							:($('jump_' typ))
 jump_5
 jump_6
 
 * 	elbl,pbl
 
-*	genop('adr' cond,w0,lbl)
+*	genop(op,w0,lbl)
 	genop('mov' cond,PC,lbl)			:(return)
 
 jump_7
@@ -803,14 +804,14 @@ jump_8
 
 *	w,x, map register name
 
-	genop('mov' cond, PC, text(iarg))		:(return)
+	genop(op, PC, lbl)				:(return)
 
 jump_9
 
 *	(x), register indirect
 
 	fetch(w0,iarg)
-	genop('mov' cond, PC, w0)			:(return)
+	genop(op, PC, w0)				:(return)
 
 jump_10
 jump_11
@@ -819,7 +820,7 @@ jump_11
 *	-(x), register indirect, pre decrement
 
 	fetch(w0,iarg)	
-	genop('mov' cond, PC, '[' w0 ']')		:(return)	
+	genop(op, PC, '[' w0 ']')			:(return)	
 
 jump_12
 jump_13
@@ -828,7 +829,7 @@ jump_13
 *	dlbl(x)
 
 	fetch(w0,iarg)
-	genop('mov' cond, PC, '[' w0 ']')		:(return)
+	genop(op, PC, '[' w0 ']')			:(return)
 
 jump_err
 jump_1
@@ -852,6 +853,21 @@ jump_27
 	error('fetch type not valid, but is ' type(iarg))	:(freturn)
 
 jump_end
+-stitl	move - load value from memory
+	define('move(reg,iarg,kind)')			:(move_end)
+
+*	load address from memory to register
+*	This is similar to _fetch_, except emit _mov_ not _ldr_
+
+move
+
+*	ident(datatype(iarg),'string')  genop('FETCH' kind,reg, iarg)
+*	differ(datatype(iarg),'string') genop('FETCH' kind,reg,text(iarg))
+*			:(return)
+* output = 'move reg<' reg '> type<' type(iarg) '> text <' text(iarg) '> kind <' kind '>'
+	genmem('mov',reg,iarg,kind)			:(return)
+
+move_end
 -stitl prcent(n)
 	define('prcent(n)')				:(prcent_end)
 
@@ -1111,10 +1127,14 @@ g_mov
 *	process register to register directly, do other moves by load and
 *	store, deferring any optimization until after bootstrap.
 
-	isreg(arg1) isreg(arg2) 			:s(g_mov_reg_reg)f(g_mov_other_other)
+* outfile = 'g_mov ' text(arg1) ',' text(arg2)
+	isreg(arg1) isreg(arg2) 			:s(g_mov_reg_reg)
+	isreg(arg1)					:s(g_mov_reg_other)
+	isreg(arg2)					:s(g_mov_other_reg)
+							:(g_mov_other_other)
 
 *	ident(text(arg1),'-(xs)')			:s(g_mov_push)
-	isreg(arg1)					:s(g_mov_reg_other)
+*	isreg(arg1)					:s(g_mov_reg_other)
 
 *	here is neither argument is register
 
@@ -1123,6 +1143,10 @@ g_mov_other_other
 	fetch(w2,arg2)
 	store(w2,arg1)					:(opdone)
 
+g_mov_other_reg
+
+	store(text(arg2),arg1)				:(opdone)
+
 g_mov_reg_reg
 
 	genop('mov',text(arg1),text(arg2))		:(opdone)
@@ -1130,7 +1154,6 @@ g_mov_reg_reg
 g_mov_reg_other
 
 	fetch(text(arg1),arg2)				:(opdone)
-
 
 g_mov_push
 
@@ -1180,12 +1203,10 @@ g_bsw
 
 g_bsw1
 
- outfile = 'g_bsw1'
 *  here after default case check (if needed).
 
 
 *	genop('ldr',PC,'[' reg ',' const('cfp_b*' text(arg2)) ']')
- outfile = 'bsw post ldr'
 *	genop('ldr',PC)
 	z_suspend = 0
 							:(opdone)
@@ -1393,7 +1414,7 @@ g_exi
 	genop('mov',w0,const(t3))
 	store(w0,rcode)
 	ident(t2,'n')					:s(g_exi.1)
-	genop('mov',pc,lr)				:(opdone)
+	genop('mov',PC,LC)				:(opdone)
 
 g_exi.1
 
@@ -1437,10 +1458,10 @@ g_err
 
 g_ppm.loop.next
 
-	genopl(lab_next ':')
+	genopl(lab_next)
 	jsr_count = jsr_count - 1
 	z_suspend = eq(jsr_count) 0
-	eq(jsr_count) genopl(jsr_label_norm ':')	:(opdone)
+	eq(jsr_count) genopl(jsr_label_norm)		:(opdone)
 
 g_ppm.loop
 
@@ -1550,30 +1571,30 @@ g_sec.1
 
 	genop('.text')
 	genop('.global','sec01')
-	genopl('sec01' ':')				:(opdone)
+	genopl('sec01')					:(opdone)
 
 *	definitions section
 
 g_sec.2
 
 	genop('.global','sec02')
-	genopl('sec02' ':')				:(opdone)
+	genopl('sec02')					:(opdone)
 
 *  constants section
 
 g_sec.3
 
 	genop('.global','sec03')
-	genopl('sec03' ':')				:(opdone)
+	genopl('sec03')					:(opdone)
 
 *  working variables section
 
 g_sec.4
 
 	genop('.global','esec03')
-	genopl('esec03' '				:')
+	genopl('esec03')
 	genop('.global','sec04')
-	genopl('sec04' ':')				:(opdone)
+	genopl('sec04')					:(opdone)
 
 *	here at start of program section.  If any n type procedures, put out entry-word block
 *	declaration at end of working storage
@@ -1583,10 +1604,10 @@ g_sec.5
 *	emit code to indicate in code section.
 
 	genop('.global','esec04')
-	genopl('esec04' '				:')
+	genopl('esec04')
 
 	genopl('prc_')
-	genop('.rept' tab prc_count1)
+	genop('.rept' tab prc.count1)
 	genop('.word' tab '0')
 	genop('endr')
 
@@ -1611,7 +1632,7 @@ g_sec.6
 g_sec.7
 
 	genop('.global','sec07')
-	genopl('sec07' '				:')
+	genopl('sec07')
 	flush()
 *	error section.	produce code to receive erb's
 
@@ -1775,22 +1796,23 @@ g_mnz
 
 g_add
 
-*	optimize after bootstrap
-
-*	isreg(arg1) isreg(arg2)				:s(g_add_reg_reg)
-*	isreg(arg1)					:s(g_add_reg_other)
+	isreg(arg1)					:s(g_add_reg_other)
+	isreg(arg1) isreg(arg2)				:s(g_add_reg_reg)
+ outfile = 'add other other'
 	fetch(w1,arg1)
 	fetch(w2,arg2)
 	genop('add',w1,w1,w2)
 	store(w1,arg1)					:(opdone)
 
 g_add_reg_reg
+ outfile = 'add reg reg'
 
 	genop('add',text(arg1),text(arg2))		:(opdone)
 
 g_add_reg_other
+ outfile = 'add reg other'
 
-	fetch(w1, arg1)	
+	fetch(w1, arg2)	
 	genop('add',text(arg1),text(arg1),w1)		:(opdone)
 
 *	2.2	 SUB   _opn,opv_
@@ -1799,13 +1821,13 @@ g_add_reg_other
 
 g_sub
 
-*	optimize after bootstrap
-
-*	isreg(arg1) isreg(arg2)				:s(g_sub_reg_reg)
-*	isreg(arg1)					:s(g_sub_reg_other)
+	isreg(arg1)					:s(g_sub_reg_other)
+	isreg(arg1) isreg(arg2)				:s(g_sub_reg_reg)
 	fetch(w1,arg1)
 	fetch(w2,arg2)
-	genop('sub',w1,w1,w2)				:(opdone)
+	genop('sub',w1,w1,w2)
+	store(w1,arg1)
+							:(opdone)
 
 g_sub_reg_reg
 
@@ -1824,9 +1846,14 @@ g_sub_reg_other
 
 g_ica	
 
+	isreg(arg1)					:s(g_ica_reg)
 	fetch(w1,arg1)
 	genop('add',w1,const('cfp_b'))
 	store(w1,arg1)					:(opdone)
+
+g_ica_reg
+
+	genop('add',text(arg1),const('cfp_b'))		:(opdone)
 
 *	2.4	 DCA   _opn_
 
@@ -1834,9 +1861,14 @@ g_ica
 
 g_dca
 
+	isreg(arg1)					:s(g_dca_reg)
 	fetch(w1,arg1)
 	genop('sub',w1,const('cfp_b'))
 	store(w1,arg1)					:(opdone)
+
+g_dca_reg
+
+	genop('sub',text(arg1),const('cfp_b'))		:(opdone)
 
 
 *	The following instructions compare two address values as unsigned integer values.
@@ -1861,23 +1893,23 @@ g_bne	cond = 'ne'					:(g_bop)
 
 *	Branch to _plbl_  _opn_ gt  _opv_
 
-g_bgt	g_bop = 'gt'					:(g_bop)
+g_bgt	cond = 'gt'					:(g_bop)
 
 *	2.8	 BGE   _opn,opv,plbl_
 
-g_bge	g_bop = 'ge'					:(g_bop)
+g_bge	cond = 'ge'					:(g_bop)
 
 *	Branch to _plbl_  _opn_ ge  _opv_
 
 *	2.9	 BLT   _opn,opv,plbl_
 
-g_blt	g_bop = 'lt'					:(g_bop)
+g_blt	cond = 'lt'					:(g_bop)
 
 *	Branch to _plbl_  _opn_ lt  _opv_
 
 *	2.10 BLE   _opn,opv,plbl_
 
-g_ble	g_bop = 'le'					:(g_bop)
+g_ble	cond = 'le'					:(g_bop)
 
 *	Branch to _plbl_  _opn_ le  _opv_
 
@@ -1885,20 +1917,20 @@ g_ble	g_bop = 'le'					:(g_bop)
 
 *	Equivalent to BLT or BLE
 
-g_blo	g_bop = 'lo'					:(g_bop)
+g_blo	cond = 'ls'					:(g_bop)
 
 *	2.12 BHI   _opn,opv,plbl_
 
 *	Equivalent to BGT or BGE
 
-g_bhi	g_bop = 'hi'					:(g_bop)
+g_bhi	cond = 'hi'					:(g_bop)
 
 g_bop
 
 	fetch(w1,arg1)
 	fetch(w2,arg2)
 	genop('cmp',w1,w2)
-	jump(bop,arg3)					:(opdone)
+	jump(cond,arg3)					:(opdone)
 
 *	2.13 BNZ   _opn,plbl_
 
