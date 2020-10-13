@@ -19,7 +19,6 @@
 
 	.include "int.h"
 
-	section	.text
 	.code	32
 
 	.extern	osisp
@@ -198,10 +197,10 @@ calltab:
 	.extern	reg_ia,reg_wa,reg_fl,reg_w0,reg_wc
 
 #	integer arithmetic instructions
-	.extern	cvd__
-	%macro	cvd_
-	call	cvd__
-	%endmacro
+#	.extern	cvd__
+#	%macro	cvd_
+#	call	cvd__
+#	%endmacro
 
 
 #	%macro	adi_	arg

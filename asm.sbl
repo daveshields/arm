@@ -390,7 +390,6 @@ genopl
 
 *	arm assembler wants colon after statement label.
 
-	gopl = differ(gopl) gopll ':'
 	stmts[stmts.n = stmts.n + 1] = tstmt(gopl,gopc,gop1,gop2,gop3) :(return)
 
 genopl_end
@@ -884,8 +883,14 @@ outstmt
 
 	label = t.label(ostmt)
 
+*	label handling messed up, so replace more than one trailing colons by
+*	single colon
+*	gopl = differ(substr(gopl,size(gopl),1),':') gopl ':'
+*	gopl = differ(gopl) gopl ':'
 *	clear label if definition already emitted
 
+	label = differ(label) trim(replace(trim(replace(label,': ',' :')),': ',' :'))
+	label = differ(label) label ':'
 	label = ident(label, lastlabel)
 
 outstmt1
@@ -1068,6 +1073,7 @@ opnext
 
 	ident(inlabel)					:s(opnext.1)
 	thislabel = inlabel (differ(inlabel) ge(sectnow,3) ':',)
+*	thislabel = inlabel 
 
 *	keep the label as is is not in executable code
 
@@ -1198,7 +1204,7 @@ g_bsw
 *	Here if _plbl_, so generate branch to it if out or range
 
 	genop('cmp',reg,w2)
- outfile = 'g_bsw ' datatype(arg3)
+* outfile = 'g_bsw ' datatype(arg3)
 	jump('ge',arg3)
 
 g_bsw1
@@ -1798,19 +1804,19 @@ g_add
 
 	isreg(arg1)					:s(g_add_reg_other)
 	isreg(arg1) isreg(arg2)				:s(g_add_reg_reg)
- outfile = 'add other other'
+* outfile = 'add other other'
 	fetch(w1,arg1)
 	fetch(w2,arg2)
 	genop('add',w1,w1,w2)
 	store(w1,arg1)					:(opdone)
 
 g_add_reg_reg
- outfile = 'add reg reg'
+* outfile = 'add reg reg'
 
 	genop('add',text(arg1),text(arg2))		:(opdone)
 
 g_add_reg_other
- outfile = 'add reg other'
+* outfile = 'add reg other'
 
 	fetch(w1, arg2)	
 	genop('add',text(arg1),text(arg1),w1)		:(opdone)
@@ -3147,9 +3153,9 @@ g_dtc
 	t1 tab(1) rtab(1) . t2
 	t3 = remdr(size(t2),cfp_c)
 
-*	      t2 = "'" t2 "'"
-*	append nulls to complete last word so constant length is multiple
-*	of word word
+*	      t2 = '"' t2 '"'
+
+*	append nulls to complete last word so constant length is multiple of word word
 
 	dtc_i = 1
 	t4 =
@@ -3157,7 +3163,7 @@ g_dtc
 g_dtc.1
 
 	t4 = gt(dtc_i, 1) t4 ","
-	t4 = t4 "'" substr(t2,dtc_i,1) "'"
+	t4 = t4 '"' substr(t2,dtc_i,1) '"'
 	le(dtc_i = dtc_i + 1, size(t2))			:s(g_dtc.1)
 
 	t4 = ne(t3) t4 dupl(',0',cfp_c - t3)
