@@ -24,9 +24,9 @@ endif
 # Assembler
 ASM=as
 ifeq	($(DEBUG),0)
-ASMFLAGS = -f $(ELF) -d m32
+ASMFLAGS = 
 else
-ASMFLAGS = -g -f $(ELF) -d m32
+ASMFLAGS = -g
 endif
 
 # Tools for processing Minimal source file.
@@ -38,11 +38,11 @@ LOBJS=
 
 spitbol: 
 #	rm sbl sbl.lex sbl.s sbl.err err.s
-	$(BASEBOL) lex.sbl 
-	$(BASEBOL) -x asm.sbl
-	$(BASEBOL) -x -1=sbl.err -2=err.asm err.sbl
+	$(ASM) $(ASMFLAGS) int.asm
+#	$(BASEBOL) lex.sbl 
+#	$(BASEBOL) -x asm.sbl
+#	$(BASEBOL) -x -1=sbl.err -2=err.asm err.sbl
 #	$(ASM) $(ASMFLAGS) err.asm
-#	$(ASM) $(ASMFLAGS) int.asm
 #	$(ASM) $(ASMFLAGS) sbl.asm
 #stop:
 #	$(CC) $(CFLAGS) -c osint/*.c
