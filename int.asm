@@ -16,7 +16,6 @@
 #     you should have received a copy of the gnu general public license
 #     along with macro spitbol.	 if not, see <http://www.gnu.org/licenses/>.
 
-
 	.code	32
 
 #	ws is bits per word, cfp_b is bytes per word, cfp_c is characters per word
@@ -44,8 +43,21 @@
 	.global	reg_rp
 
 	.global	minimal
-	.extern	calltab
-	.extern	stacksiz
+
+adr_calltab:	.word	calltab
+adr_stacksiz:	.word	stacksiz
+adr_lowspmin:	.word	lowspmin
+adr_rereloc:	.word	rereloc
+adr_stbas:	.word	stbas
+adr_statb:	.word	statb
+adr_stage:	.word	stage
+adr_gbcnt:	.word	gbcnt
+adr_lmodstk:	.word	lmodstk
+adr_startbrk:	.word	startbrk
+adr_outprt:	.word	outptr
+adr_swcoup:	.word	swcoup
+adr_timsx:	.word	timsx
+
 
 #	values below must agree with calltab defined in int.h and also in osint/osint.h
 
@@ -278,6 +290,7 @@ tscblk:	 .word	  512
 	.byte	0
 	.endr
 
+adr_tscblk:	.word	tscblk
 #	standard input buffer block.
 
 	.global	inpbuf
@@ -367,8 +380,31 @@ restore_regs:
 	.global	startup
 #   oxrnals for minimal calls from assembly language.
 
-#   the order of entries here must correspond to the order of
-#   calltab entries in the inter assembly language module.
+
+#   table of minimal entry points that can be called from c
+#   via the minimal function (see inter.asm).
+#
+#   note that the order of entries in this table must correspond
+#   to the order of entries in the call enumeration in osint.h
+#   and osint.inc.
+#
+#	.global calltab
+calltab:
+	.word	relaj
+	.word	relcr
+	.word	reloc
+	.word	alloc
+	.word	alocs
+	.word	alost 
+	.word	blkln
+	.word	insta
+	.word	rstrt
+	.word	start
+	.word	filnm
+	.word	dtype
+#	.word	enevs ;	 engine words
+#	.word	engts ;	  not used
+
 
 	.set	calltab_relaj,0
 	.set	calltab_relcr,1
@@ -389,13 +425,13 @@ startup:
 	pop	{w0}			@ discard return
 	b	stackinit		@ initialize minimal stack
 	ldr	w0,=compsp		@ get minimal's stack pointer
-	str 	w0,=reg_wa		@ startup stack pointer
+	str 	w0,reg_wa		@ startup stack pointer
 
 #	 getoff	 w0,dffnc		 @ get address of ppm offset
-	str	w0,=ppoff		@ save for use later
+	str	w0,ppoff		@ save for use later
 	ldr	xs,=osisp		@ switch to new c stack
 	ldr	w1,=calltab_start
-	adr	w2,=minimal_id
+	ldr	w2,=minimal_id
 	str	w1,[w2]
 	bl	minimal			@ load regs, switch stack, start compiler
 
@@ -428,13 +464,13 @@ startup:
 	.global	stackinit
 stackinit:
 	mov	w0,xs
-	str	w0,=compsp	@ save as minimal's stack pointer
-	ldr	w1,=stacksiz
+	ldr	w1,adr_stacksiz @ save as minimal's stack pointer
+	ldr	w1,[w1]
 	sub	w0,w0,w1	@ end of minimal stack is where c stack will start
-	str	w0,=osisp	@ save new c stack pointer
+	str	w0,osisp	@ save new c stack pointer
 	add	w0,#cfp_b*100	@ 100 words smaller for chk
-	.extern	lowspmin
-	str	w0,=lowspmin
+	ldr	w2,adr_lowspmin
+	str	w0,[w2]
 	mov	PC,lr
 
 #	mimimal -- call minimal function from c
@@ -459,29 +495,33 @@ minimal:
 	ldr	xr,=reg_xr
 	ldr	xl,=reg_xl
 
-	str	xs,=osisp	@ save osint stack pointer
+	str	xs,osisp	@ save osint stack pointer
 	eor	w1,w1		@ compare to zero
 	ldr	w2,=compsp
-	cmp	w2,w1,	@ is there a compiler stack?
+	cmp	w2,w1		@ is there a compiler stack?
 	add	w1,w0
 	beq	min1		@ jump if none yet
-	mov	xs,=compsp	@ switch to compiler stack
+	str	xs,compsp	@ switch to compiler stack
+	ldr	w0,=compsp	@ is there a compiler stack
+	tst	w0,w0
+	beq	min1		@ jump if none yet
 
 min1:
-	mov	w0,=minimal_id	@ get oxrnal
+	ldr	w0,minimal_id	@ get oxrnal
 #	for 64: have  
 #		call  calltab+w0*cfp_b    @ off to the minimal code
-	adr	w1,=calltab
+	ldr	w1,calltab
 	add	w1,w1,w0,lsl #2
+	bl	w1
 	mov	PC,w1
 
 	ldr	xs,=osisp	@ switch to osint stack
 
-	str	wa,=reg_wa	@ save registers
-	str	wb,=reg_wb
-	str	wc,=reg_wc
-	str	xr,=reg_xr
-	str	xl,=reg_xl
+	str	wa,reg_wa	@ save registers
+	str	wb,reg_wb
+	str	wc,reg_wc
+	str	xr,reg_xr
+	str	xl,reg_xl
 	mov	PC,lr
 
 
@@ -490,7 +530,7 @@ min1:
 hasfpu:	.word	0
 	.global	cprtmsg
 cprtmsg:
-	.ascii	    ' copyright 1987-2020 robert b. k. dewar and mark emmer.',0,0
+	.ascii	    " copyright 1987-2020 robert b. k. dewar and mark emmer."
 	.align	2
 
 
@@ -549,39 +589,46 @@ syscall_init:
 
 #	save registers in .global variables
 
-	ldr	wa,=reg_wa		 @ save registers
-	ldr	wb,=reg_wb
-	ldr	wc,=reg_wc		 @ (also _reg_ia)
-	ldr	xr,=reg_xr
-	ldr	xl,=reg_xl
+	str	wa,reg_wa		 @ save registers
+	str	wb,reg_wb
+	str	wc,reg_wc		 @ (also _reg_ia)
+	str	xl,reg_xl
+	str	xr,reg_xr
 #	ldr	ia,reg_ia
 	mov	PC,lr
 
 syscall_exit:
 	mov	rc,w0			@ save return code from function
-	str	xs,=osisp		 @ save osint's stack pointer
-	ldr	xs,=compsp		 @ restore compiler's stack pointer
+
+	ldr	w1,osisp
+	str	xs,[w1]		 @ save osint's stack pointer
+
+	ldr	xs,=compsp
 	ldr	wa,=reg_wa		 @ restore registers
 	ldr	wb,=reg_wb
 	ldr	wc,=reg_wc
 	ldr	xr,=reg_xr
 	ldr	xl,=reg_xl
+
 #	ldr	ia,reg_ia
 
 #check next TWO closely
 	ldr	w0,=reg_pc
-	mov	PC,w0
 
 	.macro	syscall	proc,id
 
 # CHECK THESE CLOSELY
-#	pop	w0			@ pop return address
-#	str	w0,=reg_pc
+	pop	{w0}			@ pop return address
+#	str	w0,reg_pc
 
 	bl	syscall_init
 #	save compiler stack and switch to osint stack
-	str	xs,=compsp	 	@ save compiler's stack pointer
-	ldr	xs,=osisp		@ load osint's stack pointer
+#	adr	w0,compsp
+#	str	xs,[w0]			@ save compiler's stack pointer
+
+#	adr	w0,osisp		@ load osint's stack pointer
+#	ldr	xs,[w0]
+
 	bl	\proc
 	b	syscall_exit		@
 #	was a call for debugging purposes,
@@ -589,16 +636,19 @@ syscall_exit:
 	.endm
 
 	.global sysax
-	.extern	zysax
+#	.extern	zysax
 sysax:	syscall	  zysax,1
 
 	.global sysbs
-	.extern	zysbs
-sysbs:	syscall	  zysbs,2
+#	.extern	zysbs
+sysbs:	
+	syscall	  zysbs,2
 
 	.global sysbx
-	.extern	zysbx
-sysbx:	str	xs,reg_xs
+#	.extern	zysbx
+sysbx:	
+	ldr	w1,reg_xs
+	str	xs,[w1]
 	syscall	zysbx,2
 
 #	 .global syscr
@@ -606,152 +656,159 @@ sysbx:	str	xs,reg_xs
 #syscr:	 syscall    zyscr,0
 
 	.global sysdc
-	.extern	zysdc
+#	.extern	zysdc
 sysdc:	syscall	zysdc,4
 
 	.global sysdm
-	.extern	zysdm
+#	.extern	zysdm
 sysdm:	syscall	zysdm,5
 
 	.global sysdt
-	.extern	zysdt
+#	.extern	zysdt
 sysdt:	syscall	zysdt,6
 
 	.global sysea
-	.extern	zysea
+#	.extern	zysea
 sysea:	syscall	zysea,7
 
 	.global sysef
-	.extern	zysef
+#	.extern	zysef
 sysef:	syscall	zysef,8
 
 	.global sysej
-	.extern	zysej
+#	.extern	zysej
 sysej:	syscall	zysej,9
 
 	.global sysem
-	.extern	zysem
+#	.extern	zysem
 sysem:	syscall	zysem,10
 
 	.global sysen
-	.extern	zysen
+#	.extern	zysen
 sysen:	syscall	zysen,11
 
 	.global sysep
-	.extern	zysep
+#	.extern	zysep
 sysep:	syscall	zysep,12
 
 	.global sysex
-	.extern	zysex
-sysex:	ldr	xs,[reg_xs]
+#	.extern	zysex
+sysex:	
+	str	xs,reg_xs
+
 	syscall	zysex,13
 
 	.global sysfc
-	.extern	zysfc
-ysfc:	pop	w0			@ <<<<remove stacked scblk>>>>
+#	.extern	zysfc
+sysfc:	
+	pop	{w0}			@ <<<<remove stacked scblk>>>>
 #	lea	xs,[xs+wc*cfp_b]	@ x64 version
 
 	add	xs,xs,lsl #2		@ arm version
 	
-	push	w0
+	push	{w0}
 	syscall	zysfc,14
 
 	.global sysgc
-	.extern	zysgc
+#	.extern	zysgc
 sysgc:	syscall	zysgc,15
 
 	.global syshs
-	.extern	zyshs
-syshs:	str	xs,reg_xs
+#	.extern	zyshs
+syshs:	
+	ldr	w1,reg_xs
+	str	xs,[w1]
 	syscall	zyshs,16
 
 	.global sysid
-	.extern	zysid
+#	.extern	zysid
 sysid:	syscall	zysid,17
 
 	.global sysif
-	.extern	zysif
+#	.extern	zysif
 sysif:	syscall	zysif,18
 
 	.global sysil
-	.extern	zysil
+#	.extern	zysil
 sysil:	syscall zysil,19
 
 	.global sysin
-	.extern	zysin
+#	.extern	zysin
 sysin:	syscall	zysin,20
 
 	.global sysio
-	.extern	zysio
+#	.extern	zysio
 sysio:	syscall	zysio,21
 
 	.global sysld
-	.extern	zysld
+#	.extern	zysld
 sysld:	syscall zysld,22
 
 	.global sysmm
-	.extern	zysmm
+#	.extern	zysmm
 sysmm:	syscall	zysmm,23
 
 	.global sysmx
-	.extern	zysmx
+#	.extern	zysmx
 sysmx:	syscall	zysmx,24
 
 	.global sysou
-	.extern	zysou
+#	.extern	zysou
 sysou:	syscall	zysou,25
 
 	.global syspi
-	.extern	zyspi
+#	.extern	zyspi
 syspi:	syscall	zyspi,26
 
 	.global syspl
-	.extern	zyspl
+#	.extern	zyspl
 syspl:	syscall	zyspl,27
 
 	.global syspp
-	.extern	zyspp
+#	.extern	zyspp
 syspp:	syscall	zyspp,28
 
 	.global syspr
-	.extern	zyspr
+#	.extern	zyspr
 syspr:	syscall	zyspr,29
 
 	.global sysrd
-	.extern	zysrd
+#	.extern	zysrd
 sysrd:	syscall	zysrd,30
 
 	.global sysri
-	.extern	zysri
+#	.extern	zysri
 sysri:	syscall	zysri,32
 
 	.global sysrw
-	.extern	zysrw
+#	.extern	zysrw
 sysrw:	syscall	zysrw,33
 
 	.global sysst
-	.extern	zysst
+#	.extern	zysst
 sysst:	syscall	zysst,34
 
 	.global systm
-	.extern	zystm
+#	.extern	zystm
 systm:	syscall	zystm,35
 
 	.global systt
-	.extern	zystt
+#	.extern	zystt
 systt:	syscall	zystt,36
 
 	.global sysul
-	.extern	zysul
+#	.extern	zysul
 sysul:	syscall	zysul,37
 
 	.global sysxi
-	.extern	zysxi
-sysxi:	str	xs,[reg_xs]
+#	.extern	zysxi
+sysxi:	
+	ldr	w1,reg_xs
+	str	xs,[w1]
 	syscall	zysxi,38
 
 	.macro	callext	proc,id
-	.extern	\proc
+#	.extern	\proc
 	bl	\proc
 	add	sp,#\id			@ pop arguments
 	.endm
@@ -794,9 +851,10 @@ sysxi:	str	xs,[reg_xs]
 #$
 	.macro	real_op name,proc
 	.global	\name
-	.extern	\proc
+#	.extern	\proc
 \name:
-	str	w0,reg_rp
+	ldr	w1,reg_rp
+	str	w0,[w1]
 	bl	\proc
 	mov	PC,lr
 	.endm
@@ -814,9 +872,9 @@ sysxi:	str	xs,[reg_xs]
 
 	.macro	int_op ent,proc
 	.global	\ent
-	.extern	\proc
+#	.extern	\proc
 \ent:
-	mov	reg_ia,ia
+	ldr	ia,reg_ia
 	bl	\proc
 	mov	PC,lr
 	.endm
@@ -826,13 +884,13 @@ sysxi:	str	xs,[reg_xs]
 
 	.macro	math_op ent,proc
 	.global	\ent
-	.extern	\proc
+#	.extern	\proc
 \ent:
 	bl	\proc
 	mov	PC,lr
 	.endm
 
-*	don't support math functions for bootstrap
+#	don't support math functions for bootstrap
 
 #	math_op	atn_,f_atn
 #	math_op	chp_,f_chp
@@ -856,23 +914,13 @@ ovr_:
 get_fp:
 	 ldr	 w0,=reg_xs		 @ minimal's xs
 	 add	 w0,#4			@ pop return from call to sysbx or sysxi
-	 ret				@ done
+	 mov	PC,lr			@ done
 
-	.extern	rereloc
 
 	.global	restart
-	.extern	stbas
-	.extern	statb
-	.extern	stage
-	.extern	gbcnt
-	.extern	lmodstk
-	.extern	startbrk
-	.extern	outptr
-	.extern	swcoup
-
 #	scstr is offset to start of string in scblk, or two words
 
-scstr	equ	cfp_c+cfp_c
+	.set	scstr,cfp_c+cfp_c
 
 #
 restart:
@@ -886,16 +934,20 @@ restart:
 	bl	stackinit		@ initialize minimal stack
 
 					@ set up for stack relocation
-	lea	w0,tscblk+scstr		@ top of saved stack
-	mov	wb,=lmodstk		@ bottom of saved stack
-	mov	wa,=stbas		@ wa = stbas from exit() time
+#	lea	w0,tscblk+scstr		@ top of saved stack
+	ldr	w0,adr_tscblk		@ load address of saved stack
+	add	w0,w0,#scstr
+
+	ldr	wb,=lmodstk		@ bottom of saved stack
+	ldr	wa,=stbas		@ wa = stbas from exit() time
 	sub	wb,w0			@ wb = size of saved stack
 	mov	wc,wa
 	sub	wc,wb			@ wc = stack bottom from exit() time
 	mov	wb,wa
 	sub	wb,xs			@ wb =	 stbas - new stbas
 
-	str	xs,=stbas	 	@ save initial sp
+	ldr	w2,adr_stbas	 	@ save initial sp
+	str	xs,[w2]
 #	 getoff	 w0,dffnc		 @ get address of ppm offset
 	ldr	w0,=ppoff	 	@ save for use later
 #
@@ -903,29 +955,38 @@ restart:
 #
 	ldr	xl,=lmodstk		@ -> bottom word of stack in tscblk
 #?? fix below
-	lea	xr,tscblk+scstr		@ -> top word of stack	
+#	lea	xr,tscblk+scstr		@ -> top word of stack	(x64 version_
+	ldr	w1,adr_tscblk		@ address of  tscblk
+	add	w1,w1,#scstr		@ address of scstr entry
+	ldr	xr,[w1]
 	cmp	xl,xr			@ any stack to transfer?
-	bze	re3			@  skip if not
+	beq	re3			@  skip if not
 	sub	xl,#4
-	std
-re1:	lodsd				@ get old stack word to w0
+re1:	
+# ??
+#	lodsd				@ get old stack word to w0
+	ldr	w0,[xl]
+	add	xl,#4
+
 	cmp	w0,wc			@ below old stack bottom?
 	blo	re2			@   j. if w0 < wc
 	cmp	w0,wa			@ above old stack top?
 	bhi	re2			@   j. if w0 > wa
 	sub	w0,wb			@ within old stack, perform relocation
-re2:	push	w0			@ transfer word of stack
+re2:	
+	push	{w0}			@ transfer word of stack
 	cmp	xl,xr			@ if not at end of relocation then
 	bhi	re1			@ branch if ge (unsigned)
 	beq	re			@ loop back
 
-re3:	cld
-	str	xs,=compsp		@ save compiler's stack pointer
-	ldr	xs,=osisp		@ back to osint's stack pointer
-	bl   rereloc			@ relocate compiler pointers into stack
-	mov	w0,=statb		@ start of static region to xr
-	str	w0,=reg_xr
-	mov	w0,=minimal_insta
+re3:	
+	str	xs,compsp		@ save compiler's stack pointer
+	ldr	xs,osisp		@ back to osint's stack pointer
+	bl   	rereloc			@ relocate compiler pointers into stack
+	ldr	w1,adr_statb		@ start of static region to xr
+	ldr	w0,[w1]
+	str	w0,reg_xr
+	mov	w1,#minimal_insta
 	b	minimal			@ initialize static region 
 					@ was a call, but there is nothing to return to.  This was probably for 
 					@ debugging purposes.
@@ -952,7 +1013,8 @@ re3:	cld
 #
 	bl   startbrk			@ start control-c logic
 
-	mov	w0,=stage		@ is this a -w call?
+	ldr	w1,adr_stage		@ is this a -w call?
+	ldr	w0,[w1]
 	cmp	w0,#4
 	beq	      re4		@ yes, do a complete fudge
 
@@ -966,40 +1028,43 @@ re3:	cld
 #	would occur if we naively returned to sysbx.  clear the stack and
 #	go for it.
 #
-re4:	mov	w0,=stbas
-	str	w0,=compsp		@ empty the stack
+re4:	ldr	w1,adr_stbas
+	ldr	w0,[w1]
+	str	w0,compsp			@ empty the stack
 
 #	code that would be executed if we had returned to makeexec:
 #
 	eor	w1,w1
-	str	w1,=gbcnt		@ reset garbage collect count
+	ldr	w2,adr_gbcnt
+	str	w1,[w2]			@ reset garbage collect count
 	bl	zystm			@ fetch execution time to reg_ia
-	mov	w0,=reg_ia		@ set time into compiler
-	.extern	timsx
-	str	w0,timsx
+	ldr	w0,reg_ia		@ set time into compiler
+	ldr	w2,adr_timsx
+	str	w0,[w2]
 
 #	code that would be executed if we returned to sysbx:
 #
-	push	outptr			@ swcoup(outptr)
-	.extern	swcoup
+#	push	outptr			@ swcoup(outptr)
+	ldr	w1,=outptr
+	push	{w1}
 	bl	swcoup
 	add	xs,#cfp_b
 
 #	jump to minimal code to restart a save file.
 
-	mov	w0,=minimal_rstrt
-	str	w0,=minimal_id
+	mov	w0,#minimal_rstrt
+	str	w0,minimal_id
 	bl	minimal			@ no return
 
-%ifdef z_trace
-	.extern	zz_ra
-	.global	zzz
-	.extern	zz,zz_cp,zz_xl,zz_xr,zz_wa,zz_wb,zz_wc,zz_w0
-zzz:
-	pushf
-	bl	save_regs
-	bl	zz
-	bl	restore_regs
-	popf
-	mov	PC,lr
-%endif
+#%ifdef z_trace
+#	.extern	zz_ra
+#	.global	zzz
+#	.extern	zz,zz_cp,zz_xl,zz_xr,zz_wa,zz_wb,zz_wc,zz_w0
+#zzz:
+#	pushf
+#	bl	save_regs
+#	bl	zz
+#	bl	restore_regs
+#	popf
+#	mov	PC,lr
+#%endif

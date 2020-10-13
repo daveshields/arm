@@ -97,30 +97,6 @@
 	.word	b_kvt	@ kvblk type word - 26
 	.word	b_pfc	@ pfblk type word - 27
 	.word	b_tet	@ teblk type word - 28
-#
-#   table of minimal entry points that can be dded from c
-#   via the minimal function (see inter.asm).
-#
-#   note that the order of entries in this table must correspond
-#   to the order of entries in the call enumeration in osint.h
-#   and osint.inc.
-#
-	.global calltab
-calltab:
-	.word	relaj
-	.word	relcr
-	.word	reloc
-	.word	alloc
-	.word	alocs
-	.word	alost 
-	.word	blkln
-	.word	insta
-	.word	rstrt
-	.word	start
-	.word	filnm
-	.word	dtype
-#	.word	enevs ;	 engine words
-#	.word	engts ;	  not used
 
 	.global	gbcnt
 	.global	headv
