@@ -134,7 +134,29 @@ chktrace_end
 
 const
 
+	const = ident(datatype(iarg),minimal) convert(text(iarg),'integer') :s(return)
+	const = integer(iarg) '#' convert(iarg,'integer') :s(return)
 	const = '#' iarg				:(return)
+ error('unexpected const case')
+ outfile = 'const datatype ' datatype(iarg) '>'
+ outfile = 'const arg <' iarg '>'
+ outfile = 'const thisline ' thisline
+ outfile = 'const datatype ' datatype(iarg) '  val ' val
+
+	val = iarg
+	val = text(iarg)
+	const = integer(val) '#' convert(val,'integer') :s(return)
+
+ outfile = 'const datatype ' datatype(iarg) '  val ' val
+ output = 'const thisline ' thisline
+ output = 'const datatype ' datatype(iarg) '  val ' val
+	error('bad argument to const')
+const_1
+	
+
+	val = (ident(datatype(iarg),minarg) text(iarg), iarg)
+	val = integer(val) convert(integer,val)
+	const = '#' val					:(return)
 	
 	const = ident(datatype(iarg),minarg) '#' text(iarg)	:s(return)
 
@@ -233,17 +255,139 @@ error
 
 error_end
 -stitl	fetch - load value from memory
-	define('fetch(reg,iarg,kind)')			:(fetch_end)
+	define('fetch(reg,iarg,kind)op,base,offset')	:(fetch_end)
 
 *	load value from memory to register
 
 fetch
 
+ :(return)
 *	ident(datatype(iarg),'string')  genop('FETCH' kind,reg, iarg)
 *	differ(datatype(iarg),'string') genop('FETCH' kind,reg,text(iarg))
 *			:(return)
 * output = 'fetch reg<' reg '> type<' type(iarg) '> text <' text(iarg) '> kind <' kind '>'
-	genmem('ldr',reg,iarg,kind)			:(return)
+
+*	get argument to register _reg_ and return that register.
+*	fetch word unless _kind_ is not null, in which case fetch character
+
+*	val	01,02			predefined value
+*	reg	07,08			register
+*	opc	09,10,11		character
+*	ops	03,04,09,12-15		memory reference
+*	opw	03,04,08-15		full word
+*	opn	03,04,07-15		one word integer, e.g., an address
+*	opv	03,04,0-15,18-22	one word integer value	
+*	addr	01-05			address
+
+
+* outfile = 'fetch datatype ' datatype(iarg) ' ' type(iarg) ' ' text(iarg)
+* output = 'fetch op <' op '> reg<' reg '> kind<' kind '>'
+
+	kind = differ(kind) 'b'
+	op = 'ldr' kind
+
+
+								:($('fetch_' type(iarg)))
+fetch_0
+
+	error('unexpected fetch type 0')			:(return)
+
+fetch_1
+fetch_2
+
+	genop('mov', reg, const(text(iarg)))			:(return) 
+fetch_3
+fetch_4
+fetch_5
+fetch_6
+
+*	wlbl, clbl, elbl, plbl (all labels in text section in arm version)
+
+	genop(op,reg,'=' text(iarg))				:(return)
+
+fetch_7
+fetch_8
+
+*	w,x, map register name
+
+	genop(op,reg,'[' text(iarg) ']')			:(return)
+
+fetch_9
+
+*	(x), register indirect
+
+	genop(op,reg, '[' substr(text(iarg),2,2) ']')
+								:(return)
+
+fetch_10
+
+*	(x)+, register indirect, post increment
+
+*	ident(text(iarg),'(xs)+) genop('pop','{' reg '})	:s(return)
+	
+	base = substr(text(iarg),2,2)
+	offset = const((differ(kind) 'cfp_b',1))
+	genop(op,reg, '[' base  '],' offset)			:(return)
+
+fetch_11
+
+*	-(x), register indirect, pre decrement
+
+	base = substr(text(iarg),3,2)
+	offset = const((differ(kind) '-1', '-cfp_b'))
+	genop(op,reg,'[' base ',' offset ']!')			:(return)
+
+fetch_12
+fetch_13
+
+*	int(x)
+*	dlbl(x)
+
+	text(iarg) break('(') . offset '(' len(2) . base
+	genop(op,reg,'[' base ',' const('cfp_b*' offset) ']')	:(return) 
+
+fetch_14
+fetch_15
+
+*	name(x), where name is in working section
+
+	text(iarg) break('(') . offset '(' len(2) . base
+	genop(op,reg,'[' base, ',' const(offset) ']')		:(return) 
+
+fetch_18
+*	=dlbl
+
+*	genop('mov',reg,const(substr(text(iarg),2)))			:(return)
+ 
+fetch_20
+*	=wlbl
+fetch_21
+*	=clbl
+	genop('mov',reg,const(substr(text(iarg),2)))			:(return)
+
+fetch_22
+*	=elbl
+
+*	Types 18, 20,22 are all in text section and so are treated the same.
+
+*	genop('mov',reg,substr(text(iarg),2))				:(return)
+*	genop(op,reg,substr(text(iarg),2))			:(return)
+
+fetch_19
+
+*	*dlbl
+
+*	offset = 'cfp_b*' substr(text(iarg),2)
+*	genop('mov',reg,const(offset))				:(return)
+fetch_24
+
+	genop('mov',reg,const(text(iarg)))			:(return)
+ 
+fetch_23
+fetch_26
+fetch_27
+
+	error('fetch type not valid, but is ' type(iarg))	:(freturn)
 
 fetch_end
 -stitl genlab()
@@ -257,130 +401,6 @@ genlab
 	genlab = '_l' lpad(genlabels = genlabels + 1,4,'0') :(return)
 
 genlab_end
--stitl	genmem(argnum)
-	define('genmem(op,reg,iarg,kind)base,offset')	:(genmem_end)
-
-*	get argument to register _reg_ and return that register.
-*	genmem word unless _kind_ is not null, in which case genmem character
-
-genmem
-
-*	val	01,02			predefined value
-*	reg	07,08			register
-*	opc	09,10,11		character
-*	ops	03,04,09,12-15		memory reference
-*	opw	03,04,08-15		full word
-*	opn	03,04,07-15		one word integer, e.g., an address
-*	opv	03,04,0-15,18-22	one word integer value	
-*	addr	01-05			address
-
-
-* output = 'genmem datatype ' datatype(iarg) ' ' type(iarg) ' ' text(iarg)
-* output = 'genmem op <' op '> reg<' reg '> kind<' kind '>'
-
-	kind = differ(kind) 'b'
-	op = op kind
-
-
-								:($('genmem_' type(iarg)))
-genmem_0
-
-	error('unexpected genmem type 0')			:(return)
-
-genmem_1
-genmem_2
-
-	genop(op, reg, '=' text(iarg))				:(return)
-
-genmem_3
-genmem_4
-genmem_5
-genmem_6
-
-*	wlbl, clbl, elbl, plbl (all labels in text section in arm version)
-
-	genop(op,reg,'=' text(iarg))				:(return)
-
-genmem_7
-genmem_8
-
-*	w,x, map register name
-
-	genop(op,reg,text(iarg))				:(return)
-
-genmem_9
-
-*	(x), register indirect
-
-	genop(op,reg, '[' substr(text(iarg),2,2) ']')
-								:(return)
-
-genmem_10
-
-*	(x)+, register indirect, post increment
-
-*	ident(text(iarg),'(xs)+) genop('pop','{' reg '})	:s(return)
-	
-	base = substr(text(iarg),2,2)
-	offset = const((differ(kind),'cfp_b',1))
-	genop(op,reg, '[' base  '],' offset)			:(return)
-
-genmem_11
-
-*	-(x), register indirect, pre decrement
-
-	base = substr(text(iarg),3,2)
-	offset = const((differ(kind) '-1', '-cfp_b'))
-	genop(op,reg,'[' base ',' offset ']!')			:(return)
-
-genmem_12
-genmem_13
-
-*	int(x)
-*	dlbl(x)
-
-	text(iarg) break('(') . offset '(' len(2) . base
-	genop(op,reg,'[' base ',' const('cfp_b*' offset) ']')	:(return) 
-
-genmem_14
-genmem_15
-
-*	name(x), where name is in working section
-
-	text(iarg) break('(') . offset '(' len(2) . base
-	genop(op,reg,'[' base, ',' const(offset) ']')		:(return) 
-
-genmem_18
-*	=dlbl
-genmem_20
-*	=wlbl
-genmem_21
-*	=clbl
-genmem_22
-*	=elbl
-
-*	Types 18, 20,22 are all in text section and so are treated the same.
-
-	genop('mov',reg,text(iarg))				:(return)
-*	genop(op,reg,substr(text(iarg),2))			:(return)
-
-genmem_19
-
-*	*dlbl
-
-	offset = 'cfp_b*' substr(text(iarg),2)
-	genop('mov',reg,const(offset))				:(return)
- 
-genmem_23
-genmem_24
-genmem_26
-genmem_27
-
-	error('genmem type not valid, but is ' type(iarg))	:(freturn)
-
-genmem_ok
-
-genmem_end
 -stitl genopl(gopl,gopc,gop1,gop2,gop3)
 	define('genopl(gopl,gopc,gop1,gop2,gop3)')	:(genopl_end)
 
@@ -458,6 +478,10 @@ init
 	ia = wc
 	cp = 'cp' 
 
+*	rc holds return code from osint call.
+
+	rc = 'rc'
+
 *	pc is the program counter. We use PC when explicitly maniupulating the program branch, typically
 *	as part of a branch.
 
@@ -474,11 +498,11 @@ init
 	data('minarg(type,text)')
 
 *	rcode is used to hold return code value from subroutine call.
-
-*	use register for rcode since value not needed by osint (unless zz_trace is used, and
-*	it not being used for bootstrap).
-
-	rcode = minarg(5,'rc')
+*
+**	use register for rcode since value not needed by osint (unless zz_trace is used, and
+**	it not being used for bootstrap).
+*
+*	rcode = minarg(5,'rc')
 
 * symbolic target assignments
 
@@ -785,9 +809,10 @@ jump
 
 *	Some minimal labels end encoded as datatype by the scanner, others aren't.
 
-	lbl = '=' (ident(datatype(iarg),'minarg') text(iarg),iarg)
+	lbl = (ident(datatype(iarg),'minarg') text(iarg),iarg)
 	typ = (ident(datatype(iarg),'minarg') type(iarg),6)
-	op = 'mov' cond
+	op = 'mov' 
+	cond = ident(cond) 'al'
 * outfile = 'jump cond  ' cond '  typ <' typ '> lbl <' lbl '>'
 							:($('jump_' typ))
 jump_5
@@ -795,22 +820,21 @@ jump_6
 
 * 	elbl,pbl
 
-*	genop(op,w0,lbl)
-	genop('mov' cond,PC,lbl)			:(return)
+	genop('b' cond,lbl)				:(return)
 
 jump_7
 jump_8
 
 *	w,x, map register name
 
-	genop(op, PC, lbl)				:(return)
+	genop(op cond, PC, lbl)				:(return)
 
 jump_9
 
 *	(x), register indirect
 
 	fetch(w0,iarg)
-	genop(op, PC, w0)				:(return)
+	genop(op cond, PC, w0)				:(return)
 
 jump_10
 jump_11
@@ -819,7 +843,7 @@ jump_11
 *	-(x), register indirect, pre decrement
 
 	fetch(w0,iarg)	
-	genop(op, PC, '[' w0 ']')			:(return)	
+	genop(op cond, PC, '[' w0 ']')			:(return)	
 
 jump_12
 jump_13
@@ -828,7 +852,7 @@ jump_13
 *	dlbl(x)
 
 	fetch(w0,iarg)
-	genop(op, PC, '[' w0 ']')			:(return)
+	genop(op cond, PC, '[' w0 ']')			:(return)
 
 jump_err
 jump_1
@@ -849,7 +873,7 @@ jump_26
 jump_27
 
 * output = 'datatype jump arg ' datatype(iarg)
-	error('fetch type not valid, but is ' type(iarg))	:(freturn)
+	error('jump type not valid, but is ' type(iarg))	:(freturn)
 
 jump_end
 -stitl	move - load value from memory
@@ -1018,17 +1042,133 @@ skip_init	s break(':') . on ':' rem . off		:f(return)
 
 skip_init_end
 -stitl	store - load value from memory
-	define('store(reg,iarg,kind)')			:(store_end)
+	define('store(reg,iarg,kind)op,base,offset')	:(store_end)
 
 *	store value from register to memory 
 
 store
+	:(return)
 
 *	ident(datatype(iarg),'string') genop('STORE' kind,reg, iarg)
 *	differ(datatype(iarg),'string') genop('STORE' kind,reg,text(iarg))
 *	:(return)
 * output = 'store reg<' reg '> type<' type(iarg) '> text <' text(iarg) '> kind <' kind '>'
-	genmem('str',reg,iarg,kind)			:(return)
+
+*	store argument from register _reg_ to memory location given by _iarg_
+*	store word unless _kind_ is not null, in which case store character
+
+*	val	01,02			predefined value
+*	reg	07,08			register
+*	opc	09,10,11		character
+*	ops	03,04,09,12-15		memory reference
+*	opw	03,04,08-15		full word
+*	opn	03,04,07-15		one word integer, e.g., an address
+*	opv	03,04,0-15,18-22	one word integer value	
+*	addr	01-05			address
+
+
+* output = 'store datatype ' datatype(iarg) ' ' type(iarg) ' ' text(iarg)
+* output = 'store op <' op '> reg<' reg '> kind<' kind '>'
+
+	kind = differ(kind) 'b'
+	op = 'str' kind
+
+
+								:($('store_' type(iarg)))
+store_0
+
+	error('unexpected store type 0')			:(return)
+
+store_1
+store_2
+
+	genop(op, reg, text(iarg))				:(return)
+
+store_3
+store_4
+store_5
+store_6
+
+*	wlbl, clbl, elbl, plbl (all labels in text section in arm version)
+
+	genop(op,reg,text(iarg))				:(return)
+
+store_7
+store_8
+
+*	w,x, map register name
+
+	genop(op,reg,text(iarg))				:(return)
+
+store_9
+
+*	(x), register indirect
+
+	genop(op,reg, '[' substr(text(iarg),2,2) ']')
+								:(return)
+
+store_10
+
+*	(x)+, register indirect, post increment
+
+*	ident(text(iarg),'(xs)+) genop('pop','{' reg '})	:s(return)
+	
+	base = substr(text(iarg),2,2)
+	offset = const((differ(kind) 'cfp_b',1))
+	genop(op,reg, '[' base  '],' offset)			:(return)
+
+store_11
+
+*	-(x), register indirect, pre decrement
+
+	base = substr(text(iarg),3,2)
+	offset = const((differ(kind) '-1', '-cfp_b'))
+	genop(op,reg,'[' base ',' offset ']!')			:(return)
+
+store_12
+store_13
+
+*	int(x)
+*	dlbl(x)
+
+	text(iarg) break('(') . offset '(' len(2) . base
+	genop(op,reg,'[' base ',' const('cfp_b*' offset) ']')	:(return) 
+
+store_14
+store_15
+
+*	name(x), where name is in working section
+
+	text(iarg) break('(') . offset '(' len(2) . base
+	genop(op,reg,'[' base, ',' const(offset) ']')		:(return) 
+
+store_18
+*	=dlbl
+store_20
+*	=wlbl
+store_21
+*	=clbl
+store_22
+*	=elbl
+
+*	Types 18, 20,22 are all in text section and so are treated the same.
+
+	genop('mov',reg,text(iarg))				:(return)
+*	genop(op,reg,substr(text(iarg),2))			:(return)
+
+store_19
+
+*	*dlbl
+
+	offset = 'cfp_b*' substr(text(iarg),2)
+	genop('mov',reg,const(offset))				:(return)
+ 
+store_23
+store_24
+store_26
+store_27
+
+	error('store type not valid, but is ' type(iarg))	:(freturn)
 
 store_end
 -stitl main program
@@ -1212,7 +1352,7 @@ g_bsw1
 *  here after default case check (if needed).
 
 
-*	genop('ldr',PC,'[' reg ',' const('cfp_b*' text(arg2)) ']')
+	genop('ldr',PC,'[' reg ',' const('cfp_b*' text(arg2)) ']')
 *	genop('ldr',PC)
 	z_suspend = 0
 							:(opdone)
@@ -1272,7 +1412,7 @@ g_ent
 							:(g_ent.2)
 g_ent.1
 
-	genop('word',text(arg1))
+	genop('.word',text(arg1))
 
 g_ent.2
 
@@ -1303,8 +1443,8 @@ g_bri
 
 g_lei
 
-	fetch(w1,arg1)
-	genop('ldr','[' w1 ', ' const(-cfp_b) ']')	:(opdone)
+	reg = text(arg1)
+	fetch(reg,arg1)					:(opdone)
 
 *	*   1.9	 JSR  _pnam_	  call procedure _pnam_
 
@@ -1322,9 +1462,9 @@ g_jsr
 	jsr_calls = jsr_calls +	 1
 	jsr_label = 'call_' jsr_calls
 	jsr_label_norm = jsr_label
-	fetch(w0,rcode) 
+	genop('mov',w0,rc)
 	genop('subs',w0,const(1))
-	store(w0,rcode)
+	genop('mov',rc,w0)
 	jump('pl',jsr_label_norm)
 	z_suspend = 0
 
@@ -1418,7 +1558,7 @@ g_exi
 	differ(t2,'n') eq(prc.args)	genop('mov',pc,lr) :s(opdone)
 	t3 = ident(t3) '0'
 	genop('mov',w0,const(t3))
-	store(w0,rcode)
+	genop('mov',rc,w0)
 	ident(t2,'n')					:s(g_exi.1)
 	genop('mov',PC,LC)				:(opdone)
 
@@ -1452,14 +1592,12 @@ g_err
 *	_rcode_ until it goes negative,and then take the appropriate branch.
 
 
-	t1 = text(arg1)
-
 *	branch to next case if rcode code still not negative.
 
 	ident(incode,'ppm')				:s(g_ppm.loop)
 	count.err =  count.err + 1
 	errfile =   text(arg1) ' ' text(arg2)
-	max.err = gt(t1,max.err) t1
+	max.err = gt(text(arg1),max.err) text(arg1)
 							:(g_ppm.loop)
 
 g_ppm.loop.next
@@ -1472,7 +1610,7 @@ g_ppm.loop.next
 g_ppm.loop
 
 	lab_next = genlab()
-	fetch(w0,rcode)
+	genop('mov',w0,rc)
 	genop('subs',w0,w0,const(1))
 	jump('pl',lab_next)
 
@@ -1482,9 +1620,13 @@ g_ppm.loop
 
 g_ppm.loop.err
 
-* output = 'ppm.loop ' t1
-	fetch(w0,minarg(1,const(t1)))
-	store(w0,rcode)
+	eq(type(arg1))					:s(g_ppm.loop.next)
+* outfile = 'ppm.loop  datatype <' datatype(arg1) '>'
+* outfile = 'ppm.loop  not null <' text(arg1) '>'
+* outfile = 'ppm.loop  type <' type(arg1) '>'
+* outfile = 'ppm.loop  text <' text(arg1) '>'
+	genop('mov',w0,const(text(arg1)))
+	genop('mov',rc,w0)
 	jump(,'err_')
 							:(g_ppm.loop.next)
 g_ppm.loop.ppm
@@ -1514,10 +1656,10 @@ g_ppm.2
 g_erb
 	errfile =  text(arg1) ' ' text(arg2)
 
-*	set rcode to error code and branch to error handler
+*	set rc to error code and branch to error handler
 
 	genop('mov',w0,const(text(arg1)))
-	store(w0,rcode)
+	genop('mov',rc,w0)
 	jump(,'err_')					:(opdone)
 
 g_ssl
@@ -1615,7 +1757,7 @@ g_sec.5
 	genopl('prc_')
 	genop('.rept' tab prc.count1)
 	genop('.word' tab '0')
-	genop('endr')
+	genop('.endr')
 
 	genop('.global','lowspmin')
 	genopl('lowspmin','.word', 0)
@@ -1647,9 +1789,9 @@ g_sec.7
 	n1 = max.err + 8
 *	output = '  max.err ' max.err
 	genopl('err_')
-	genop('mov',w0,wa);* set up to exchange wa and rcode
-	fetch(w0,rcode)
-	store(wa,rcode)
+	genop('mov',w0,wa);* set up to exchange wa and rc
+	genop('mov',w0,rc)
+	genop('mov',rc,wa)
 	genop('mov',wa,w0)				:(opdone)
 
 
@@ -1738,7 +1880,7 @@ g_dcv
 
 g_zer
 
-	genop('xor',w1,w1)
+	genop('eor',w1,w1)
 	store(w1,arg1)
 							:(opdone)
 
@@ -1750,7 +1892,7 @@ g_zer
 
 g_mnz
 
-	genop('xor',w0,w0)
+	genop('eor',w0,w0)
 	genop('add',w0,const(1))
 	store(w0,arg1)
 							:(opdone)
@@ -1949,13 +2091,13 @@ g_bop
 g_bnz
 
 	fetch(w1,arg1)
-	genop('ors',w1,w1)
+	genop('orr',w1,w1)
 	jump('ne',arg2)					:(opdone)
 
 g_bze	
 
 	fetch(w1,arg1)
-	genop('ors',w1,w1)
+	genop('orrs',w1,w1)
 	jump('eq',arg2)					:(opdone)
 
 *	2.15 LCT  _w,opv_
@@ -2165,7 +2307,7 @@ g_dvi
 *	Further note that check for divide by zero is not needed for bootstrap.
 
 	fetch(w1,arg1)
-	genop('sdivs',ia,ia,w1)				:(opdone)
+	genop('sdiv',ia,ia,w1)				:(opdone)
 
 *	4.6	 RMI   _ops_
 
@@ -2269,7 +2411,7 @@ g_ine	cond = 'ne'					:(g_ia)
 
 g_ia
 
-	genop('ors',ia,ia,ia)
+	genop('orrs',ia,ia,ia)
 	jump(cond,arg1)					:(opdone)
 
 
@@ -2475,7 +2617,7 @@ g_plc
 g_psc
 
 	fetch(w1,arg1)
-	eq(type(arg2)) 	genop('xor',w2,w2);* no opv
+	eq(type(arg2)) 	genop('eor',w2,w2);* no opv
 	ne(type(arg2)) 	fetch(w2,arg2)
 	genop('add',w1,w1,w2,'cfp_f')			
 	store(w1,arg1)					:(opdone)
@@ -2589,8 +2731,8 @@ g_cmc
 *	Here if same, so clear xl and xr, then fall through to next instruction
 
 	genopl(done_lbl)
-	genop('xor',xl,xl)
-	genop('xor',xr,xr)
+	genop('eor',xl,xl)
+	genop('eor',xr,xr)
 							:(opdone)
 
 *	6.9	 TRC
@@ -2627,8 +2769,8 @@ g_trc
 *	Here when done, so clear xl and xr, then fall through to next instruction
 
 	genopl(done_lbl)
-	genop('xor',xl,xl)
-	genop('xor',xr,xr)
+	genop('eor',xl,xl)
+	genop('eor',xr,xr)
 							:(opdone)
 *	6.10 FLC  _w_
 
@@ -2724,7 +2866,7 @@ g_rsx
 g_nzb	
 	
 	reg = text(arg1)
-	genop('or',reg,reg)
+	genop('orrs',reg,reg)
 	jump('ne',arg2)					:(opdone)
 
 *	7.10 ZRB  w,_plbl_
@@ -2733,8 +2875,8 @@ g_nzb
 
 g_zrb
 	reg = text(arg1)
-	genop('or',reg,reg)
-	jump('eq',arg1)					:(opdone)
+	genop('orrs',reg,reg)
+	jump('eq',arg2)					:(opdone)
 
 *	7.11 ZGB   _opn_
 
@@ -2814,7 +2956,7 @@ g_mfi
 *	here if label given, branch if ia not in range (ie, negative)
 
 	genop('mov',ia,w0)
-	genop('ors',w0,w0)
+	genop('orrs',w0,w0)
 	jump('mi',arg2);* branch if ia negative
 	genop('subs',w0,w0,const('cfp_m'));
 	jump('mi',arg2);* branch if ia greater than cfp_m
@@ -2907,7 +3049,7 @@ g_cvd
 	genop('sub',w1,ia,w1);* remainder (is negative or zero)
 	genop('or',w2,w2);* clear w2
 	genop('rsb',w2,w2,w1);* make remainder positive
-	genop('add',wa,w2,'ch_d0');* convert to digit code
+	genop('add',wa,w2,const('ch_d0'));* convert to digit code
 							:(opdone)
 
 *	#### 9-	 Block Move Instructions
@@ -3166,8 +3308,12 @@ g_dtc.1
 	t4 = t4 '"' substr(t2,dtc_i,1) '"'
 	le(dtc_i = dtc_i + 1, size(t2))			:s(g_dtc.1)
 
-	t4 = ne(t3) t4 dupl(',0',cfp_c - t3)
+*	t4 = ne(t3) t4 dupl(',0',cfp_c - t3)
 	genopl(thislabel,'.ascii',t4)
+
+*	align to word boundary
+
+	genop('.align',2)
 							:(opdone)
 *	11.5 DBC  _val
 

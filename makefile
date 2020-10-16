@@ -38,9 +38,9 @@ LOBJS=
 
 spitbol: 
 #	rm sbl sbl.lex sbl.s sbl.err err.s
-	$(ASM) $(ASMFLAGS) int.asm
-#	$(BASEBOL) lex.sbl 
-#	$(BASEBOL) -x asm.sbl
+#	$(ASM) $(ASMFLAGS) int.asm
+	$(BASEBOL) lex.sbl 
+	$(BASEBOL) -x asm.sbl
 #	$(BASEBOL) -x -1=sbl.err -2=err.asm err.sbl
 #	$(ASM) $(ASMFLAGS) err.asm
 #	$(ASM) $(ASMFLAGS) sbl.asm

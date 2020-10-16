@@ -223,11 +223,6 @@ sav_compsp:
 	.global	osisp
 osisp:	.word	0			@ osint's stack pointer
 
-#	_rc_ is kept in register in arm version
-
-#	.global	_rc_
-#_rc_:	dd   0				@ return code from osint procedure
-
 	.global	save_cp
 	.global	save_xl
 	.global	save_xr

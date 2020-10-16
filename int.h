@@ -18,9 +18,10 @@
 	wc	.req	r5
 	ia	.req	r5	@ is overlaps wc
 	xl	.req	r6
+	xt	.req	r6
 	xr	.req	r7
 	cp	.req	r8
-	rc	.req	r9	@ return code (_rc_ in x64 version)
+	rc	.req	r10	@ return code (_rc_ in x64 version)
 	xs	.req	sp
 
 	.set	cfp_c_val,4
