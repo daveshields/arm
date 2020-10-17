@@ -261,7 +261,6 @@ error_end
 
 fetch
 
- :(return)
 *	ident(datatype(iarg),'string')  genop('FETCH' kind,reg, iarg)
 *	differ(datatype(iarg),'string') genop('FETCH' kind,reg,text(iarg))
 *			:(return)
@@ -296,12 +295,20 @@ fetch_1
 fetch_2
 
 	genop('mov', reg, const(text(iarg)))			:(return) 
+
 fetch_3
 fetch_4
+
+*	wlbl, clbl
+
+	pooladd(text(iarg))
+	genop('ldr', reg, '[pr,'  const(text(iarg) '_]'))			
+	genop('ldr',reg, '[' reg ']')				:(return)
+
 fetch_5
 fetch_6
 
-*	wlbl, clbl, elbl, plbl (all labels in text section in arm version)
+*	elbl, plbl (all labels in program section in arm version)
 
 	genop(op,reg,'=' text(iarg))				:(return)
 
@@ -355,30 +362,30 @@ fetch_15
 	genop(op,reg,'[' base, ',' const(offset) ']')		:(return) 
 
 fetch_18
+
 *	=dlbl
 
-*	genop('mov',reg,const(substr(text(iarg),2)))			:(return)
- 
 fetch_20
+
 *	=wlbl
 fetch_21
+
 *	=clbl
-	genop('mov',reg,const(substr(text(iarg),2)))			:(return)
 
 fetch_22
+
 *	=elbl
 
-*	Types 18, 20,22 are all in text section and so are treated the same.
-
-*	genop('mov',reg,substr(text(iarg),2))				:(return)
-*	genop(op,reg,substr(text(iarg),2))			:(return)
+	pooladd(substr(text(iarg),2))
+	genop('ldr',pr,const(substr(text(iarg),2) '_'))		:(return)
 
 fetch_19
 
 *	*dlbl
 
-*	offset = 'cfp_b*' substr(text(iarg),2)
-*	genop('mov',reg,const(offset))				:(return)
+	offset = 'cfp_b*' substr(text(iarg),2)
+	genop('mov',reg,const(offset))				:(return)
+
 fetch_24
 
 	genop('mov',reg,const(text(iarg)))			:(return)
@@ -490,6 +497,10 @@ init
 	lr = 'lr'
 	LR = 'LR'
 
+*	_pr_ is the pool register. It contains the address of the pool table
+
+	pr = 'pr'
+
 
 *	minarg represents an argument to minimal instruction. _type_ is the
 *	argument's type as operands format of the minimal specification.
@@ -521,6 +532,12 @@ init
 	real_op['sin'] = 'fsin'
 	real_op['sqr'] = 'fsqrt'
 	real_op['str'] = 'fst'
+
+*	pooltable is used to assign index for labels for which their
+*	address is needed. This includes all variables defined in working section
+
+	pooltable = table(500)
+	pooltablen =  0
 
 *	dacops is used for operand types 19 - *dlbl
 
@@ -977,6 +994,19 @@ outstmt6
 	labtab<label> = output_lines			:(return)
 
 outstmt_end
+-stitl pooladd(label)
+	define('pooladd(label)')			:(pooladd_end)
+
+*	add entry to address pool if not yet present.
+pooladd
+
+	ident(label)					:s(return)
+	differ(pooltable[label])				:s(return)
+	pooltable[label] = pooltablen 
+	genop('.set',label '_,' pooltablen '*cfp_b')
+	pooltablen = pooltablen + 1				:(return)
+
+pooladd_end
 -stitl prsarg(iarg)
 	define('prsarg(iarg)l1,l2')			:(prsarg_end)
 prsarg
@@ -1028,7 +1058,7 @@ readline_end
 
 report
 
-	output = rpad('	 ' text ':',30) num		:(return)
+	output = rpad('	 ' text ':',32) num		:(return)
 
 report_end
 	define('skip_init(s)on,off')			:(skip_init_end)
@@ -1047,7 +1077,6 @@ skip_init_end
 *	store value from register to memory 
 
 store
-	:(return)
 
 *	ident(datatype(iarg),'string') genop('STORE' kind,reg, iarg)
 *	differ(datatype(iarg),'string') genop('STORE' kind,reg,text(iarg))
@@ -1091,7 +1120,8 @@ store_6
 
 *	wlbl, clbl, elbl, plbl (all labels in text section in arm version)
 
-	genop(op,reg,text(iarg))				:(return)
+	genop('ldr',w2,'[pr,' const(text(iarg) '_') ']')
+	genop('str',reg,w2)					:(return)
 
 store_7
 store_8
@@ -1739,6 +1769,10 @@ g_sec.3
 
 g_sec.4
 
+*	write out pooltable entries
+
+	genopl('pool0');* label of first entry
+
 	genop('.global','esec03')
 	genopl('esec03')
 	genop('.global','sec04')
@@ -1832,13 +1866,27 @@ g_end.4
 
 *	here at end of code generation.
 
+*	write out pool table entries
+
+	s = sort(pooltable,2)
+	i = 0
+	outfile = 'pool0:'
+
+g_end.5
+	
+	outfile = tab	'.word'  tab s[i = i + 1,1] tab '@ ' i - 1
+*	genop('.word',s[i = i + 1, 1])
+	output_lines = output_lines + 1
+	lt(i,pooltablen)				:s(g_end.5)
+
 	&code	= ne(nerrors) 2001
 	report(input_lines,	'input lines read')
-	report(nstmts,		'statements processed')
+	report(nstmts,		'mininal statements processed')
 	report(output_lines,	'output code lines produced')
 	report(&stcount,	'spitbol statements executed')
 	report(max.err,		'maximum err/erb number')
 	report(prc.count1,	'prc count')
+	report(pooltablen,	'pool table entries')
 	report(dacops.n,	'dac cfp*d_lbl entries')
 	output	= '  ' gt(prc.count,prc.count1)
 .	  '  differing counts for n-procedures:'
@@ -3245,7 +3293,6 @@ g_chk
 
 g_dac
 
-	t1 = type(arg1)
 	genopl(thislabel,'.word',text(arg1))		:(decend)
 
 *	11.2 DIC  _integer_

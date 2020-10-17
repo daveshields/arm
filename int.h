@@ -22,6 +22,7 @@
 	xr	.req	r7
 	cp	.req	r8
 	rc	.req	r10	@ return code (_rc_ in x64 version)
+	rp	.req	r11	@ pool base register
 	xs	.req	sp
 
 	.set	cfp_c_val,4
