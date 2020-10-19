@@ -298,26 +298,22 @@ fetch_2
 
 fetch_3
 fetch_4
+fetch_5
+fetch_6
 
 *	wlbl, clbl
+*	elbl, plbl (all labels in program section in arm version)
 
 	pooladd(text(iarg))
 	genop('ldr', reg, '[pr,'  const(text(iarg) '_]'))			
 	genop('ldr',reg, '[' reg ']')				:(return)
-
-fetch_5
-fetch_6
-
-*	elbl, plbl (all labels in program section in arm version)
-
-	genop(op,reg,'=' text(iarg))				:(return)
 
 fetch_7
 fetch_8
 
 *	w,x, map register name
 
-	genop(op,reg,'[' text(iarg) ']')			:(return)
+	genop('mov',reg,text(iarg))				:(return)
 
 fetch_9
 
@@ -345,21 +341,37 @@ fetch_11
 	genop(op,reg,'[' base ',' offset ']!')			:(return)
 
 fetch_12
-fetch_13
 
 *	int(x)
+*	location int words beyond adress in x
+
+fetch_13
+
 *	dlbl(x)
+*	location dlbl words beyond adress in x, where dlbl in definiton section
 
 	text(iarg) break('(') . offset '(' len(2) . base
-	genop(op,reg,'[' base ',' const('cfp_b*' offset) ']')	:(return) 
+	genop('ldr',w1,'[' base ']')
+	genop('add',w1,const('cfp_b*' offset))
+	genop(op,reg,'[' w1 ']')				:(return)
 
 fetch_14
+
+*	clbl(x)
+*	location (x) bytes beyond clbl
+
 fetch_15
 
-*	name(x), where name is in working section
+*	wlbl(x), where wlbl is in working section
+*	location (x) bytes beyond wlbl
 
 	text(iarg) break('(') . offset '(' len(2) . base
-	genop(op,reg,'[' base, ',' const(offset) ']')		:(return) 
+	pooladd(offset)
+	genop('ldr',w1,'[pr,' const(offset '_') ']')
+	genop('ldr',w2,'[' base ']')
+	genop('lsl',w2,w2,const(2))
+	genop('add',w1,w2)
+	genop(op,reg,'[w1]')					:(return)
 
 fetch_18
 
@@ -377,7 +389,7 @@ fetch_22
 *	=elbl
 
 	pooladd(substr(text(iarg),2))
-	genop('ldr',pr,const(substr(text(iarg),2) '_'))		:(return)
+	genop('ldr',reg,'[' pr ',' const(substr(text(iarg),2) '_]'))		:(return)
 
 fetch_19
 
@@ -478,7 +490,7 @@ init
 
 *	w0 is temp register
 
-	w0 = 'w0'; w1 = 'w1'; w2 = 'w2'
+	w0 = 'w0'; w1 = 'w1'; w2 = 'w2'; w3 = 'w3'
 	wa = 'wa'; wb = 'wb'; wc = 'wc'
 	xl = 'xl'; xr = 'wr'; 
 	xs = 'xs'; xt = xs
@@ -1120,15 +1132,16 @@ store_6
 
 *	wlbl, clbl, elbl, plbl (all labels in text section in arm version)
 
+	pooladd(text(iarg))
 	genop('ldr',w2,'[pr,' const(text(iarg) '_') ']')
-	genop('str',reg,w2)					:(return)
+	genop(op,reg,'[' w2 ']')				:(return)
 
 store_7
 store_8
 
 *	w,x, map register name
 
-	genop(op,reg,text(iarg))				:(return)
+	genop('mov',reg,text(iarg))				:(return)
 
 store_9
 
@@ -1156,28 +1169,47 @@ store_11
 	genop(op,reg,'[' base ',' offset ']!')			:(return)
 
 store_12
-store_13
 
 *	int(x)
-*	dlbl(x)
+*	location int words beyond adress in x
 
+store_13
+
+*	dlbl(x)
+*	location dlbl words beyond adress in x, where dlbl in definiton section
 	text(iarg) break('(') . offset '(' len(2) . base
-	genop(op,reg,'[' base ',' const('cfp_b*' offset) ']')	:(return) 
+
+	genop('ldr',w1,'[' base ']')
+	genop('add',w1,const('cfp_b*' offset))
+	genop(op,reg,'[' w1 ']')				:(return)
 
 store_14
+
+*	clbl(x)
+*	location (x) bytes beyond clbl
+
 store_15
 
 *	name(x), where name is in working section
+*	location int/dlbl bytes beyond adress in x.
 
 	text(iarg) break('(') . offset '(' len(2) . base
-	genop(op,reg,'[' base, ',' const(offset) ']')		:(return) 
+	pooladd(offset)
+	genop('ldr',w1,'[pr,' const(offset '_') ']')
+	genop('ldr',w2,'[' base ']')
+	genop('lsl',w2,w2,const(2))
+	genop('add',w1,w2)
+	genop(op,reg,'[w1]')					:(return)
 
 store_18
 *	=dlbl
+
 store_20
 *	=wlbl
+
 store_21
 *	=clbl
+
 store_22
 *	=elbl
 
@@ -1561,8 +1593,11 @@ g_prc.n
 *	store return address in reserved location
 
 	prc.count = prc.count + 1
-	fetch(w0,arg_mxs);* pop from stack
-	store(w0, minarg(5,prcent(prc.count)))			:(opdone)
+*	fetch(w0,arg_mxs);* pop from stack
+	genop('mov',w0,LR)
+	genop('ldr',w1,'[pr,#prc__]')
+	genop('add',w1,'#cfp_b*' (prc.count - 1))
+	genop('ldr',w1, '[' w1 ']')				:(opdone)
 
 *	*   1.12 EXI  _int_	  exit from procedure
 
@@ -1585,12 +1620,12 @@ g_exi
 
 *	if type r or e, and no exit parameters, just return
 
-	differ(t2,'n') eq(prc.args)	genop('mov',pc,lr) :s(opdone)
+	differ(t2,'n') eq(prc.args)	genop('mov',pc,LR) :s(opdone)
 	t3 = ident(t3) '0'
 	genop('mov',w0,const(t3))
 	genop('mov',rc,w0)
 	ident(t2,'n')					:s(g_exi.1)
-	genop('mov',PC,LC)				:(opdone)
+	genop('mov',PC,LR)				:(opdone)
 
 g_exi.1
 
@@ -1769,14 +1804,16 @@ g_sec.3
 
 g_sec.4
 
-*	write out pooltable entries
-
-	genopl('pool0');* label of first entry
+	genop('.global','lowspmin')
+	genopl('lowspmin','.word', 0)
 
 	genop('.global','esec03')
 	genopl('esec03')
+
 	genop('.global','sec04')
-	genopl('sec04')					:(opdone)
+	genopl('sec04')					
+
+							:(opdone)
 
 *	here at start of program section.  If any n type procedures, put out entry-word block
 *	declaration at end of working storage
@@ -1788,13 +1825,11 @@ g_sec.5
 	genop('.global','esec04')
 	genopl('esec04')
 
+	pooladd('prc_')
 	genopl('prc_')
 	genop('.rept' tab prc.count1)
 	genop('.word' tab '0')
 	genop('.endr')
-
-	genop('.global','lowspmin')
-	genopl('lowspmin','.word', 0)
 
 	genop('.global','end_min_data')
 	genopl('end_min_data')
@@ -2276,8 +2311,7 @@ g_scp
 
 g_lcw  
 
-	genop('ldr',w0,cp)
-	genop('mov',text(arg1),w0)
+	genop('ldr',text(arg1),'[' cp ']')
 	genop('add',cp,cp,const(1))			:(opdone)
 
 *	3.4	 ICP
@@ -2316,7 +2350,7 @@ g_adi
 
 g_mli
 
-	fetch(10,arg1)
+	fetch(ia,arg1)
 
 *	arm doesn't allow _muls_ destination register and first operand register to be the same, so
 *	swap the order since multiplication is commutative.
@@ -2363,6 +2397,7 @@ g_dvi
 
 g_rmi
 
+ :(opdone)
 
 *	Call library procedure (cf. int.asm) to check for zero divisor and do the division
 
@@ -2508,6 +2543,10 @@ g_sbr
 g_mlr
 g_dvr
 
+* no real arithmetic operations needed for bootstrap
+
+	:(opdone)
+
 	error('real operation ' incode ' not supported for bootsrap')	:(opdone)
 
 *	5.7	 ROV  _plbl_
@@ -2523,6 +2562,7 @@ g_dvr
 
 g_rov
 g_rno
+ :(opdone)
 
 	error('real operation ' incode ' not supported for bootsrap')	:(opdone)
 
@@ -2530,7 +2570,8 @@ g_rno
 
 *	Negate real accumulator (change sign)
 
-*g_ngr 
+g_ngr 
+	:(opdone)
 
 	error('real operation ' incode ' not supported for bootsrap')	:(opdone)
 							:(opdone)
@@ -2569,12 +2610,13 @@ g_rle	jop = 'jle'					:(g_r1)
 g_rlt	jop = 'jl'
 
 g_r1	
+	:(opdone)
 
 	error('real operation ' incode ' not supported')	:(opdone)
 	genop('call','cpr_')
 
 	genop('mov','al','byte [reg_fl]')
-	genop('or','al','al')
+	genop('orr','al','al')
 	genop(jop,getarg(arg1))				:(opdone)
 
 *	5.16 ATN
@@ -2624,6 +2666,7 @@ g_lnf
 g_sin
 g_sqr
 g_tan
+ :(opdone)
 
 	error('real operation ' incode ' not supported')	:(opdone)
 	genop('call',op_)
@@ -2676,7 +2719,9 @@ g_psc
 
 g_lch
 
-	fetch(text(arg1),arg2,'char')			:(opdone)
+	fetch(w1,arg2,'char')			
+	store(w1,arg1,'char')
+							:(opdone)
 
 *	6.4	 SCH  _reg,opc_
 
@@ -2846,7 +2891,7 @@ g_anb
 
 	reg = text(arg1)
 	fetch(w1,arg2)
-	genop('or',reg,reg,w1)				:(opdone)
+	genop('orr',reg,reg,w1)				:(opdone)
 
 g_orb	
 
@@ -3023,6 +3068,7 @@ g_mfi.1
 
 g_itr
 
+ :(opdone)
 	error('g_itr real arithmetic not supported')	:(opdone)
 
 *	8.6	 RTI  _plbl_
@@ -3038,6 +3084,7 @@ g_itr
 
 g_rti
 
+ :(opdone)
 	error('g_rti real arithmetic not supported')	:(opdone)
 
 *	here if label given, branch if real too large
@@ -3070,7 +3117,7 @@ g_ctb
 
 g_cvm	
 	genop('mov',w0,const(10))
-	genop('smul',ia,w0)
+	genop('mul',ia,w0)
 	genop('subs',ia,wb)
 	jump('vs',arg1);* jump on overflow
 							:(opdone)
@@ -3088,14 +3135,16 @@ g_cvm
 
 g_cvd
 
-	genop('mov',w0,const(10))
 	genop('sdiv',ia,w0)
 
 *	compute remainder, complement it, and add to code for digit 0.
 
-	genop('smul',w1,ia,const(10))
-	genop('sub',w1,ia,w1);* remainder (is negative or zero)
-	genop('or',w2,w2);* clear w2
+	genop('mov',w0,const(10))
+	genop('mov',w2,ia);* save ia
+	genop('sdiv',ia,w0);* set ia to quotient
+	genop('mul',w1,w2,ia)
+	genop('sub',w2,w1);* remainder (is negative or zero)
+	genop('orr',w2,w2);* clear w2
 	genop('rsb',w2,w2,w1);* make remainder positive
 	genop('add',wa,w2,const('ch_d0'));* convert to digit code
 							:(opdone)
@@ -3138,14 +3187,14 @@ g_mvc
 	loopc = genlab()
 	fetch(wb,arg_xlp,'char')
 	store(wb,arg_xrp,'char')
-	genop('str',wb,'dumpb')
+	genop('mov',w3,wb);* save wb
 
 	genopl(loopc)
 		fetch(wb,arg_xrp,'char')
 		store(wb,arg_xlp,'char')
 		genop('subs',wa,const(1))
 		jump('mi',loopc)
-	genop('ldr',wb,'dumpb')
+	genop('mov',wb,w3);* restore wb
 
 	z_suspend = 0
 							:(opdone)
@@ -3244,12 +3293,13 @@ g_mcb
 	loopc = genlab()
 	gen_plc(arg_xl)
 	gen_plc(arg_xr)
-	store(wb,'dumpb')
+	genop('mov',w3,wb);* save wb
 	genopl(loopc)
 		fetch(wb,arg_mxl,'char')
 		store(wb,arg_mxr,'char')
 		genop('subs',wa,const(1))
 		jump('mi',loopc)
+	genop('mov',wb,w3);* restore wb
 	fetch(wb,'dumpb')
 
 *	#### 10- Operations Connected with the Stack
@@ -3275,9 +3325,9 @@ g_mcb
 
 g_chk
 
-	fetch(w0,minarg(5,'lowspmin'))
+	fetch(w0,minarg(3,'lowspmin'))
 	genop('cmp',xs,w0)
-	jump('lo',sec06)				:(opdone)
+	jump('lo',minarg(6,'sec06'))			:(opdone)
 
 *	#### 11- Data Generation Instructions
 
@@ -3314,7 +3364,7 @@ g_dic
 
 g_drc
 
-	genop('align',4)
+	genop('.align',2)
 	t1 = text(arg1)
 	t1 ? fence "+" = ""
 	genopl(thislabel,'.float',t1)			:(opdone)
