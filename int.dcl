@@ -208,17 +208,30 @@ calltab:
 #	seto	byte [reg_fl]
 #	%endmacro
 #
-#	.extern	dvi__
-#	%macro	dvi_	arg
-#	call	dvi__
-#	%endmacro
-#
-#	.extern	rmi__
-#	%macro	rmi_	arg
-#	mov	rax,r1
-#	call	rmi__
-#	%endmacro
-#
+
+#	on return from dvi__ and rmi__, result is in wc (ia) (if defined), and
+#	w0 is zero for normal return, or 1 if overflow or divide by zero.
+
+	.extern	dvi__
+	.macro	dvi_
+	str	w0,reg_w0		@ store argument
+	str	wc,reg_ia		@ make wc (ia) accessible to osint procedure
+	call	dvi__
+	tst	w0
+	msrne	CPSR_F,#1<<28		@ set overflow
+	ldr	wc,reg_wc
+	.endm
+
+	.extern	rmi__
+	.macro	rmi_
+	str	w0,reg_w0		@ store argument
+	str	wc,reg_ia		@ make wc (ia) accessible to osint procedure
+	call	rmi__
+	tst	w0
+	msrne	CPSR_F,#1<<28		@ set overflow
+	ldr	wc,reg_ia
+	.endm
+
 
 #	%macro	ino_	arg
 #	mov	al,byte [reg_fl]
