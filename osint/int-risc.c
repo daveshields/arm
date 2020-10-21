@@ -6,42 +6,32 @@ Copyright 2012-2015 David Shields
 /*
  * int.c - integer support for SPITBOL.
  *
- * Needed for RISC systems that do not provide integer multiply/
+ * Needed for RISC systems that do not provide integer divide/remainder
  * divide in hardware.
  */
 
 #include "port.h"
 
-#if SUN4
-
-typedef long i;
-
-/*
- * i_mli - multiply to accumulator
- */
-i i_mli(arg,ia)
-i arg,ia;
-{
-    return ia * arg;
-}
 
 
 /*
- * i_dvi - divide into accumulator
+ * dvi - divide into accumulator
  */
-i i_dvi(arg,ia)
-i arg,ia;
+int dvi__()
 {
-    return ia / arg;
+	if (reg_w0 == 0) return EXIT_1;
+	reg_ia / reg_w0;
+	return NORMAL_EXIT;
 }
 
 /*
- * i_rmi - remainder after division into accumulator
+ * rmi - remainder after division into accumulator
  */
-i i_rmi(arg,ia)
-i arg,ia;
+int rmi__()
 {
-    return ia % arg;
+	if (reg_w0 == 0) return EXIT_1;
+	reg_ia %= reg_w0;
+	return NORMAL_EXIT;
 }
 
 #endif					// SUN4

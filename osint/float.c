@@ -34,33 +34,25 @@ This file is part of Macro SPITBOL.
 // cf = 0x01
 // zr = 0x40
 
-void f_ldr() {			// load real
-	reg_ra = *reg_rp;
-	return;
-}
-void f_str() {			// store real
-	*reg_rp = reg_ra;
-	return;
-}
 
 void f_adr() {			// add real
-	reg_ra += *reg_rp;
+	reg_ra += reg_ra;
 	return;
 }
 
 void f_sbr() {			// subtract real
-	reg_ra -= *reg_rp;
+	reg_ra -= reg_ra;
 	return;
 }
 
 void f_mlr() {			// multiply real
-	reg_ra *= *reg_rp;
+	reg_ra *= reg_ra;
 	return;
 }
 
 void f_dvr() {			// divide real
-	if (*reg_rp != 0.0) {
-		reg_ra /= *reg_rp;
+	if (*reg_ra != 0.0) {
+		reg_ra /= reg_ra;
 		reg_fl = 0;
 	}
 	else
@@ -74,7 +66,7 @@ void f_ngr() {			// negate real
 }
 
 void f_itr() {			// integer to real
-	reg_ra = (double) reg_ia;
+	reg_ra = (float) reg_ia;
 	return;
 }
 

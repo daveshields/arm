@@ -1583,21 +1583,25 @@ g_prc
 	ppm_cases[thislabel] = text(arg2)
 	thislabel =
 	max_exi = gt(prc.args,max_exi) prc.args
-	prc.type = text(arg1)			:($('g_prc.' prc.type))
+	prc.type = text(arg1)				:($('g_prc.' prc.type))
 
 g_prc.e
-g_prc.r							:(opdone)
+g_prc.r							
+
+*	save return address on stack
+
+	genop('pop','{LR}')				:(opdone)
 
 g_prc.n
 
-*	store return address in reserved location
+*	save return address in reserved location
 
 	prc.count = prc.count + 1
 *	fetch(w0,arg_mxs);* pop from stack
 	genop('mov',w0,LR)
 	genop('ldr',w1,'[pr,#prc__]')
 	genop('add',w1,'#cfp_b*' (prc.count - 1))
-	genop('ldr',w1, '[' w1 ']')				:(opdone)
+	genop('ldr',w1, '[' w1 ']')			:(opdone)
 
 *	*   1.12 EXI  _int_	  exit from procedure
 
@@ -1620,17 +1624,23 @@ g_exi
 
 *	if type r or e, and no exit parameters, just return
 
-	differ(t2,'n') eq(prc.args)	genop('mov',pc,LR) :s(opdone)
+	differ(t2,'n') eq(prc.args)	genop('mov',pc,LR) :s(g_exi.2)
 	t3 = ident(t3) '0'
 	genop('mov',w0,const(t3))
 	genop('mov',rc,w0)
-	ident(t2,'n')					:s(g_exi.1)
-	genop('mov',PC,LR)				:(opdone)
+	ident(t2,'n')					:f(g_exi.2)
 
 g_exi.1
 
-	jump(, prcent(prc.count))
-							:(opdone)
+	jump(, prcent(prc.count))			:(opdone)
+
+g_exi.2
+
+*	restore LR and return
+
+	genop('pop','{LR}')
+	genop('mov',PC,LR)				:(opdone)
+
 
 *	*   1.13 ENP  define end of procedure body
 
@@ -2377,6 +2387,11 @@ g_sbi
 
 g_dvi
 
+*	Use library procedure.
+
+	fetch(w0,arg1)
+	genop('dvi_')					:(opdone)
+
 *	In ARM V7, signed and unsigned division are avilable in the THUMB instruction set, with
 *	the instructions UDIV and SDIV.
 
@@ -2397,13 +2412,9 @@ g_dvi
 
 g_rmi
 
- :(opdone)
 
 *	Call library procedure (cf. int.asm) to check for zero divisor and do the division
 
-*	Further note that check for divide by zero is not needed for bootstrap.
-
-* TODO g_rmi
 	fetch(w0,arg1)
 	genop('rmi_')					:(opdone)
 

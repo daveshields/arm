@@ -1,7 +1,6 @@
 # copyright 1987-2012 robert b. k. dewar and mark emmer.
 # copyright 2012-2020 david shields
 #
-# this file is part of macro spitbol.
 #
 #     macro spitbol is free software: you can redistribute it and/or modify
 #     it under the terms of the gnu general public license as published by
@@ -18,7 +17,7 @@
 
 	.code	32
 
-#	ws is bits per word, cfp_b is bytes per word, cfp_c is characters per word
+#	cfp_b is bytes per word, cfp_c is characters per word
 
 
 	.set	cfp_b,4
@@ -42,21 +41,22 @@
 
 	.global	reg_rp
 
-	.global	minimal
 
-adr_calltab:	.word	calltab
-adr_stacksiz:	.word	stacksiz
-adr_lowspmin:	.word	lowspmin
-adr_rereloc:	.word	rereloc
-adr_stbas:	.word	stbas
-adr_statb:	.word	statb
-adr_stage:	.word	stage
-adr_gbcnt:	.word	gbcnt
-adr_lmodstk:	.word	lmodstk
-adr_startbrk:	.word	startbrk
-adr_outprt:	.word	outptr
-adr_swcoup:	.word	swcoup
-adr_timsx:	.word	timsx
+#	address of global variables, where suffix '_' gives address of a variable
+
+calltab_:	.word	calltab
+stacksiz_:	.word	stacksiz
+lowspmin_:	.word	lowspmin
+rereloc_:	.word	rereloc
+stbas_:		.word	stbas
+statb_:		.word	statb
+stage_:		.word	stage
+gbcnt_:		.word	gbcnt
+lmodstk_:	.word	lmodstk
+startbrk_:	.word	startbrk
+outprt_:	.word	outptr
+swcoup_:	.word	swcoup
+timsx_:		.word	timsx
 
 
 #	values below must agree with calltab defined in int.h and also in osint/osint.h
@@ -73,13 +73,13 @@ adr_timsx:	.word	timsx
 	.set	minimal_start,9
 	.set	minimal_filnm,10
 	.set	minimal_dtype,11
-	.set	minimal_enevs,10
-	.set	minimal_engts,12
+	.set	minimal_enevs,12
+	.set	minimal_engts,13
 
-#	---------------------------------------
+	.global	minimal
 
 #	this file contains the assembly language routines that interface
-#	the macro spitbol compiler written in 80386 assembly language to its
+#	the macro spitbol compiler written in assembly language to the
 #	operating system interface functions written in c.
 
 #	contents:
@@ -101,7 +101,7 @@ adr_timsx:	.word	timsx
 #	interface functions to provide all interaction with the host
 #	operating system.  these functions are referred to as osint
 #	functions.  a typical call to one of these osint functions takes
-#	the following form in the 80386 vexlon of the compiler:
+#	the following form in the arm version of the compiler:
 
 #		...code to put arguments in registers...
 #		call	sysxx		# call osint function
@@ -143,7 +143,7 @@ adr_timsx:	.word	timsx
 
 #	    when an osint function returns, it must return a value indicating
 #	    which of the n+1 exits should be taken.  these return values are
-#	    defined in header file 'inter.h'.
+#	    defined in header file 'int.h'.
 
 #	note:  in the actual implementation below, the saving and restoring
 #	of registers is actually done in one common routine accessed by all
@@ -176,7 +176,7 @@ reg_ra:	.single	0.0			@ register ra
 # these locations save information needed to return after calling osint
 # and after a restart from exit()
 
-reg_pc: .word	0		    	@ return pc from caller
+#reg_pc: .word	0		    	@ return pc from caller
 reg_xs:	.word	0			@ minimal stack pointer
 
 	.set	r_size,10*cfp_b
@@ -185,6 +185,7 @@ reg_size:	.word   r_size		@ used only in sysxi in osint
 # end of words saved during exit(-3)
 
 # reg_rp is used to pass pointer to real operand for real arithmetic
+# this is not needed for arm version, since real operands are single word.
 
 reg_rp:	.word	0
 
@@ -216,7 +217,7 @@ sav_block:
 	.global	ppoff
 ppoff:	.word	0			@ offset for ppm exits
 	.global	compsp
-compsp: .word	0			@ compiler's stack pointer
+compsp_: .word	compsp			@ compiler's stack pointer
 	.global	sav_compsp
 sav_compsp:
 	.word	0			@ save compsp here
@@ -285,7 +286,7 @@ tscblk:	 .word	  512
 	.byte	0
 	.endr
 
-adr_tscblk:	.word	tscblk
+tscblk_:	.word	tscblk
 #	standard input buffer block.
 
 	.global	inpbuf
@@ -419,14 +420,16 @@ calltab:
 startup:
 	pop	{w0}			@ discard return
 	b	stackinit		@ initialize minimal stack
-	ldr	w0,=compsp		@ get minimal's stack pointer
+	ldr	w0,compsp_		@ get minimal's stack pointer
+	ldr	w0,[w0]
 	str 	w0,reg_wa		@ startup stack pointer
 
-#	 getoff	 w0,dffnc		 @ get address of ppm offset
-	str	w0,ppoff		@ save for use later
-	ldr	xs,=osisp		@ switch to new c stack
-	ldr	w1,=calltab_start
-	ldr	w2,=minimal_id
+	ldr	w2,ppoff_
+	str	w0,[w2]			@ save for use later
+	ldr	xs,osisp_		@ switch to new c stack
+	ldr	xs,[xs]
+	ldr	w1,calltab_start_
+	ldr	w2,minimal_id_
 	str	w1,[w2]
 	bl	minimal			@ load regs, switch stack, start compiler
 
@@ -459,12 +462,13 @@ startup:
 	.global	stackinit
 stackinit:
 	mov	w0,xs
-	ldr	w1,adr_stacksiz @ save as minimal's stack pointer
+	ldr	w1,stacksiz_ 	@ save as minimal's stack pointer
 	ldr	w1,[w1]
 	sub	w0,w0,w1	@ end of minimal stack is where c stack will start
-	str	w0,osisp	@ save new c stack pointer
+	ldr	w2,osisp_
+	str	w0,[w2]		@ save new c stack pointer
 	add	w0,#cfp_b*100	@ 100 words smaller for chk
-	ldr	w2,adr_lowspmin
+	ldr	w2,lowspmin_
 	str	w0,[w2]
 	mov	PC,lr
 
@@ -483,34 +487,41 @@ stackinit:
 #	the osint stack.
 
 minimal:
-#	  pushad			@ save all registers for c
 	ldr	wa,=reg_wa	@ restore registers
 	ldr	wb,=reg_wb
 	ldr	wc,=reg_wc	@
 	ldr	xr,=reg_xr
 	ldr	xl,=reg_xl
 
-	str	xs,osisp	@ save osint stack pointer
-	eor	w1,w1		@ compare to zero
-	ldr	w2,=compsp
-	cmp	w2,w1		@ is there a compiler stack?
-	add	w1,w0
+	ldr	w2,osisp_
+	str	xs,[w2]		@ save osint stack pointer
+	ldr	w1,compsp_
+	ldr	w1,[w2]
+	eors	w1,w1		@ compare to zero
+	cmp	w1,w1		@ is there a compiler stack?
 	beq	min1		@ jump if none yet
-	str	xs,compsp	@ switch to compiler stack
-	ldr	w0,=compsp	@ is there a compiler stack
-	tst	w0,w0
+	ldr	w2,compsp_
+	mov	xs,[w2]		@ switch to compiler stack
+min1:
+
+	ldr	w0,compsp_	@ is there a compiler stack
+	ldr	w0,[w0]
+	cmp	w0,w0
 	beq	min1		@ jump if none yet
 
 min1:
-	ldr	w0,minimal_id	@ get oxrnal
+	ldr	w0,minimal_id_	@ ordinal in calltab
+	ldr	w0,[w0]
 #	for 64: have  
 #		call  calltab+w0*cfp_b    @ off to the minimal code
-	ldr	w1,calltab
+	ldr	w1,calltab_	@ origin of calltab
 	add	w1,w1,w0,lsl #2
-	bl	w1
+	mov	LR,min1_ret
 	mov	PC,w1
+min1_ret:			@ return address from prior call
 
-	ldr	xs,=osisp	@ switch to osint stack
+	ldr	xs,osisp_	@ switch to osint stack
+	ldr	xs,[xs]
 
 	str	wa,reg_wa	@ save registers
 	str	wb,reg_wb
@@ -576,9 +587,6 @@ cprtmsg:
 #		     ...	...
 
 
-#	.segment	data
-#call_adr:	.word	0
-#	.segment	text
 
 syscall_init:
 
@@ -589,34 +597,32 @@ syscall_init:
 	str	wc,reg_wc		 @ (also _reg_ia)
 	str	xl,reg_xl
 	str	xr,reg_xr
-#	ldr	ia,reg_ia
-	mov	PC,lr
+	mov	PC,LR
 
 syscall_exit:
+
 	mov	rc,w0			@ save return code from function
 
-	ldr	w1,osisp
-	str	xs,[w1]		 @ save osint's stack pointer
+	ldr	w1,osisp_
+	str	xs,[w1]		 	@ save osint's stack pointer
 
-	ldr	xs,=compsp
+	ldr	xs,compsp_
+	ldrd	xs,[xs]
 	ldr	wa,=reg_wa		 @ restore registers
 	ldr	wb,=reg_wb
 	ldr	wc,=reg_wc
 	ldr	xr,=reg_xr
 	ldr	xl,=reg_xl
+#	ldr	w0,reg_pc_
+#	ldr	w0,[w0]
 
-#	ldr	ia,reg_ia
-
-#check next TWO closely
-	ldr	w0,=reg_pc
+	mov	PC,LR			@ return to syscall caller
 
 	.macro	syscall	proc,id
 
 # CHECK THESE CLOSELY
-	pop	{w0}			@ pop return address
-#	str	w0,reg_pc
-
 	bl	syscall_init
+
 #	save compiler stack and switch to osint stack
 #	adr	w0,compsp
 #	str	xs,[w0]			@ save compiler's stack pointer
@@ -625,7 +631,7 @@ syscall_exit:
 #	ldr	xs,[w0]
 
 	bl	\proc
-	b	syscall_exit		@
+	bl	syscall_exit		@
 #	was a call for debugging purposes,
 #	but that would cause crash when the compilers stack pointer blew up
 	.endm
@@ -642,8 +648,7 @@ sysbs:
 	.global sysbx
 #	.extern	zysbx
 sysbx:	
-	ldr	w1,reg_xs
-	str	xs,[w1]
+	str	xs,reg_xs
 	syscall	zysbx,2
 
 #	 .global syscr
@@ -698,9 +703,8 @@ sysex:
 sysfc:	
 	pop	{w0}			@ <<<<remove stacked scblk>>>>
 #	lea	xs,[xs+wc*cfp_b]	@ x64 version
-
-	add	xs,xs,lsl #2		@ arm version
-	
+	lsl	w0,wc,#2
+	add	xs,xs,w0		@ arm version
 	push	{w0}
 	syscall	zysfc,14
 
@@ -711,8 +715,7 @@ sysgc:	syscall	zysgc,15
 	.global syshs
 #	.extern	zyshs
 syshs:	
-	ldr	w1,reg_xs
-	str	xs,[w1]
+	str	xs,reg_xs
 	syscall	zyshs,16
 
 	.global sysid
@@ -798,15 +801,8 @@ sysul:	syscall	zysul,37
 	.global sysxi
 #	.extern	zysxi
 sysxi:	
-	ldr	w1,reg_xs
-	str	xs,[w1]
+	str	xs,reg_xs
 	syscall	zysxi,38
-
-	.macro	callext	proc,id
-#	.extern	\proc
-	bl	\proc
-	add	sp,#\id			@ pop arguments
-	.endm
 
 #	x64 hardware divide, expressed in form of minimal register mappings, requires dividend be
 #	placed in w0, which is then sign extended into wc:w0. after the divide, w0 contains the
@@ -819,16 +815,16 @@ sysxi:
 #		wa ecx) = remainder + '0'
 
 # assume no overflows for bootstrap, all operations on IA use code generated by asm.sbl
-#$	.global	cvd__
-#$cvd__:
-#$	.extern	i_cvd
-#$	mov	ia,=reg_ia
-#$	mov	wa,=reg_wa
-#$	call	i_cvd
-#$	ldr	ia,=reg_ia
-#$	ldr	wa,=reg_wa
-#$	mov	PC,lr
-#$
+$	.global	cvd__
+$cvd__:
+	.extern	i_cvd
+	mov	reg_ia,ia
+	mov	reg_wa,wa
+	bl	i_cvd
+	ldr	wc,reg_ia
+	ldr	wa,reg_wa
+	mov	PC,lr
+
 #$
 #$ocode:
 #$	or	w0,w0			@ test for 0
@@ -854,24 +850,23 @@ sysxi:
 	mov	PC,lr
 	.endm
 
-#	no real operations for bootstrap
 
-#	real_op	ldr_,f_ldr
-#	real_op	str_,f_str
-#	real_op	adr_,f_adr
-#	real_op	sbr_,f_sbr
-#	real_op	mlr_,f_mlr
-#	real_op	dvr_,f_dvr
-#	real_op	ngr_,f_ngr
-#	real_op cpr_,f_cpr
+	real_op	ldr_,f_ldr
+	real_op	str_,f_str
+	real_op	adr_,f_adr
+	real_op	sbr_,f_sbr
+	real_op	mlr_,f_mlr
+	real_op	dvr_,f_dvr
+	real_op	ngr_,f_ngr
+	real_op cpr_,f_cpr
 
 	.macro	int_op ent,proc
 	.global	\ent
 #	.extern	\proc
 \ent:
-	ldr	ia,reg_ia
+	ldr	reg_wc,wc		@ is is kept in wc
 	bl	\proc
-	mov	PC,lr
+	mov	PC,LR
 	.endm
 
 	int_op itr_,f_itr
@@ -882,19 +877,19 @@ sysxi:
 #	.extern	\proc
 \ent:
 	bl	\proc
-	mov	PC,lr
+	mov	PC,LR
 	.endm
 
 #	don't support math functions for bootstrap
 
-#	math_op	atn_,f_atn
-#	math_op	chp_,f_chp
-#	math_op	cos_,f_cos
-#	math_op	etx_,f_etx
-#	math_op	lnf_,f_lnf
-#	math_op	sin_,f_sin
-#	math_op	sqr_,f_sqr
-#	math_op	tan_,f_tan
+	math_op	atn_,f_atn
+	math_op	chp_,f_chp
+	math_op	cos_,f_cos
+	math_op	etx_,f_etx
+	math_op	lnf_,f_lnf
+	math_op	sin_,f_sin
+	math_op	sqr_,f_sqr
+	math_op	tan_,f_tan
 
 #	ovr_ test for overflow value in ra
 	.global	ovr_
@@ -907,8 +902,8 @@ ovr_:
 	.global	get_fp			@ get frame pointer
 
 get_fp:
-	 ldr	 w0,=reg_xs		 @ minimal's xs
-	 add	 w0,#4			@ pop return from call to sysbx or sysxi
+	 ldr	 w0,reg_xs		 @ minimal's xs
+#	 add	 w0,#4			@ pop return from call to sysbx or sysxi
 	 mov	PC,lr			@ done
 
 
@@ -1034,13 +1029,15 @@ re4:	ldr	w1,adr_stbas
 	str	w1,[w2]			@ reset garbage collect count
 	bl	zystm			@ fetch execution time to reg_ia
 	ldr	w0,reg_ia		@ set time into compiler
-	ldr	w2,adr_timsx
+	mov	wc,w0			@ ia is kept in wc
+	ldr	w2,timsx_
 	str	w0,[w2]
 
 #	code that would be executed if we returned to sysbx:
 #
 #	push	outptr			@ swcoup(outptr)
-	ldr	w1,=outptr
+	ldr	w1,outptr_
+	ldr	w1,[w1]
 	push	{w1}
 	bl	swcoup
 	add	xs,#cfp_b
