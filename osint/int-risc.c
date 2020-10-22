@@ -13,6 +13,12 @@ Copyright 2012-2015 David Shields
 #include "port.h"
 
 
+void cvd__() {
+	
+	reg_wa = reg_ia % 10;
+	reg_ia /= 10;
+	reg_wa  = -reg_wa + 48; // convert remainder to character code for digit
+}
 
 /*
  * dvi - divide into accumulator

@@ -89,12 +89,5 @@ void f_pra () {
 }
 
 
-void i_cvd() {
-	
-	reg_wa = reg_ia % 10;
-	reg_ia /= 10;
-	reg_wa  = -reg_wa + 48; // convert remainder to character code for digit
-}
-
 #endif					// (FLOAT & !FLTHDWR) | EXTFUN
 

@@ -196,14 +196,18 @@ calltab:
 
 	.extern	reg_ia,reg_wa,reg_fl,reg_w0,reg_wc
 
-#	integer arithmetic instructions
-#	.extern	cvd__
-#	%macro	cvd_
-#	call	cvd__
-#	%endmacro
+	integer arithmetic instructions
+	.extern	cvd__
+	.macro	cvd_
+	str	wc,reg_ia
+	bl	cvd__
+	ldr	wc,=reg_ia
+	ldr	wa,=reg_wa
+	mov	PC,LR
+	.endm
 
 
-#	%macro	adi_	arg
+#	.macro	adi_	arg
 #	add	ia,\arg
 #	seto	byte [reg_fl]
 #	%endmacro
@@ -216,7 +220,7 @@ calltab:
 	.macro	dvi_
 	str	w0,reg_w0		@ store argument
 	str	wc,reg_ia		@ make wc (ia) accessible to osint procedure
-	call	dvi__
+	bl	dvi__
 	tst	w0
 	msrne	CPSR_F,#1<<28		@ set overflow
 	ldr	wc,reg_wc
@@ -226,7 +230,7 @@ calltab:
 	.macro	rmi_
 	str	w0,reg_w0		@ store argument
 	str	wc,reg_ia		@ make wc (ia) accessible to osint procedure
-	call	rmi__
+	bl	rmi__
 	tst	w0
 	msrne	CPSR_F,#1<<28		@ set overflow
 	ldr	wc,reg_ia
