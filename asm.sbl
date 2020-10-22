@@ -2390,7 +2390,8 @@ g_dvi
 *	Use library procedure.
 
 	fetch(w0,arg1)
-	genop('dvi_')					:(opdone)
+	genop('bl','dvi__')
+	genop('mov',PC,LR)				:(opdone)
 
 *	In ARM V7, signed and unsigned division are avilable in the THUMB instruction set, with
 *	the instructions UDIV and SDIV.
@@ -2414,6 +2415,12 @@ g_rmi
 
 
 *	Call library procedure (cf. int.asm) to check for zero divisor and do the division
+
+*	Use library procedure.
+
+	fetch(w0,arg1)
+	genop('bl','rmi__')
+	genop('mov',PC,LR)				:(opdone)
 
 	fetch(w0,arg1)
 	genop('rmi_')					:(opdone)

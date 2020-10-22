@@ -16,6 +16,8 @@
 #     along with macro spitbol.	 if not, see <http://www.gnu.org/licenses/>.
 
 	.code	32
+	.section	.text
+	.syntax		unified
 
 #	cfp_b is bytes per word, cfp_c is characters per word
 
@@ -515,6 +517,46 @@ minimal:
 	str	xl,reg_xl
 	mov	PC,LR
 
+
+	.extern	dvi__
+dvi__:
+	push	{LR}
+	tst	w0,w0
+	cmp	w0,w0			@ compare to see if zero (also clear v flag)
+	beq	1f
+	str	w0,reg_w0		@ store argument
+	str	wc,reg_ia		@ make wc (ia) accessible to osint procedure
+	bl	dvi_
+	ldr	wc,=reg_wc
+	b	2f
+1:					@ here if divide by zero, force overflow
+	mov	w1,#1
+	lsl	w1,w1,#30		@ large integer
+	mov	w2,w1
+	muls	w1,w2,w1		@ force overflow to be set
+2:
+	pop	{LR}
+	mov	PC,LR
+
+	.extern	rmi__
+rmi__:
+	tst	w0,w0
+	push	{LR}
+	cmp	w0,w0			@ compare to see if zero (also clear v flag)
+	beq	1f
+	str	w0,reg_w0		@ store argument
+	str	wc,reg_ia		@ make wc (ia) accessible to osint procedure
+	bl	rmi__
+	ldr	wc,=reg_wc
+	b	2f
+1:					@ here if divide by zero, force overflow
+	mov	w1,#1
+	lsl	w1,w1,#30		@ large integer
+	mov	w2,w1
+	muls	w1,w2,w1		@ force overflow to be set
+2:
+	pop	{LR}
+	mov	PC,LR
 
 	.align	2
 	.global		hasfpu

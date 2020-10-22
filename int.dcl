@@ -187,7 +187,9 @@ calltab:
 #	%macro	zzz	3
 #	section	.data
 #%%desc:	db	%3,0
-#	section	.text
+	.section	.text
+	.syntax		unified
+	
 #	mov	m_word [zz_id],%1
 #	mov	m_word [zz_zz],%2
 #	mov	m_word [zz_de],%%desc
@@ -196,14 +198,23 @@ calltab:
 
 	.extern	reg_ia,reg_wa,reg_fl,reg_w0,reg_wc
 
-	integer arithmetic instructions
+#	integer arithmetic instructions
+
+	.macro	setov
+#	set overflag from rightmost bit of w0
+	lsl	w0,w0,#28
+	mrs	w1,APSR
+	orr	w1,w1,w0
+	msr	(apsr_c),w1
+	msr	APSR,w1
+	.endm
+
 	.extern	cvd__
 	.macro	cvd_
 	str	wc,reg_ia
 	bl	cvd__
 	ldr	wc,=reg_ia
 	ldr	wa,=reg_wa
-	mov	PC,LR
 	.endm
 
 
@@ -218,22 +229,38 @@ calltab:
 
 	.extern	dvi__
 	.macro	dvi_
+	tst	w0,w0
+	cmp	w0,w0			@ compare to see if zero (also clear v flag)
+	beq	1f
 	str	w0,reg_w0		@ store argument
 	str	wc,reg_ia		@ make wc (ia) accessible to osint procedure
 	bl	dvi__
-	tst	w0
-	msrne	CPSR_F,#1<<28		@ set overflow
-	ldr	wc,reg_wc
+	ldr	wc,=reg_wc
+	b	2f
+1:					@ here if divide by zero, force overflow
+	mov	w1,#1
+	lsl	w1,w1,#30		@ large integer
+	mov	w2,w1
+	muls	w1,w2,w1		@ force overflow to be set
+2:
 	.endm
 
 	.extern	rmi__
 	.macro	rmi_
+	tst	w0,w0
+	cmp	w0,w0			@ compare to see if zero (also clear v flag)
+	beq	1f
 	str	w0,reg_w0		@ store argument
 	str	wc,reg_ia		@ make wc (ia) accessible to osint procedure
 	bl	rmi__
-	tst	w0
-	msrne	CPSR_F,#1<<28		@ set overflow
-	ldr	wc,reg_ia
+	ldr	wc,=reg_wc
+	b	2f
+1:					@ here if divide by zero, force overflow
+	mov	w1,#1
+	lsl	w1,w1,#30		@ large integer
+	mov	w2,w1
+	muls	w1,w2,w1		@ force overflow to be set
+2:
 	.endm
 
 
