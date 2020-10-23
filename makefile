@@ -41,7 +41,7 @@ spitbol:
 #	$(ASM) $(ASMFLAGS) int.asm
 	$(BASEBOL) lex.sbl 
 	$(BASEBOL) -x asm.sbl
-	$(BASEBOL) -x -1=sbl.err -2=err.asm err.sbl
+	$(BASEBOL) -x -1=sbl.err -2=err.s err.sbl
 #	$(ASM) $(ASMFLAGS) err.asm
 #	$(ASM) $(ASMFLAGS) sbl.asm
 #stop:

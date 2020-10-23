@@ -87,7 +87,7 @@
 *	the program makes considerable use of gimpel's seq function to
 *	sequence through various arrays.
 
-*	the output is a series of data statements in generic 68000 assembly
+*	the output is a series of data statements in generic assembly
 *	language.  there are two types of pseudo-ops:
 *	1.  byte	to define decimal data bytes
 *	2.  ascii	to define an ascii string
@@ -119,21 +119,21 @@ nomachine
 	tab	= char(9)
 *	comma delimited string of decimal bytes:
 
-	db	= 'db'
+	db	= '.byte'
 	byte	= tab db tab
 
 *	delim delimited string of 'normal' ascii characters (32-127)
 
 	delim	= '"'
-	ascii	= tab 'db' tab
+	ascii	= tab '.ascii' tab
 
 *	comment lead-in character
 
-	comment = ';'
+	comment = '#'
 
 *	data and public definitions
 
-	data	= tab 'segment' tab '.data'
+	data	= tab '.data'
 
 *	setup keywords
 
@@ -442,15 +442,15 @@ readerr.end
 
 *	putout label and compressed error message table
 
-	outfile = tab 'global' tab 'errors'
-	outfile = 'errors				    :' tab 'db' tab '0'
+	outfile = tab '.global' tab 'errors'
+	outfile = 'errors:' tab '.byte' tab '0'
 	seq(" putout(err[i],i)", .i)
 
 *	putout label and phrase table
 
 	outfile =
-	outfile = tab 'global' tab 'phrases'
-	outfile = 'phrases				    :' tab 'db' tab '0'
+	outfile = tab '.global' tab 'phrases'
+	outfile = 'phrases:' tab '.byte' tab '0'
 	seq(" putout(phrase[i],spread(i))", .i)
 
 *	finish up the output file

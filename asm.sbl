@@ -44,7 +44,7 @@
 *	    spitbol asm.sbl
 
 *	    reads sbl.min	    	containing tokenized source code
-*	    writes sbl.asm	    	with 80386 assembly code
+*	    writes sbl.s	    	with  assembly code
 *	    also writes sbl.err		with err and erb error messages
 
 *	    also reads <file>.pub   for debug symbols to be declared public
@@ -714,7 +714,7 @@ inputok
 
 *	associate output files.
 
-	filenamo = 'sbl.asm'
+	filenamo = 'sbl.s'
 	output(.outfile,2,filenamo)			:s(outputok)
 	output = '  cannot open asm file: ' filenamo	:(end)
 
