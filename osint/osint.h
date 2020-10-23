@@ -17,8 +17,8 @@ Copyright 2012-2017 David Shields
 
 extern word	reg_cp, reg_wa, reg_wb, reg_wc, reg_xr, reg_xl, reg_xs, reg_w0;
 extern signed char	reg_fl;
-extern long	reg_ia;
-extern double 	reg_ra,*reg_rp;
+extern reg_ia;
+extern float 	reg_ra,*reg_rp;
 extern uword	minimal_id;
 
 /*
@@ -58,7 +58,7 @@ extern uword	minimal_id;
 #define SET_XL(val)	(reg_xl = (word) (val))
 #define SET_PC(val)	(reg_pc = (word) (val))
 #define SET_XS(val)	(reg_xs = (word) (val))
-#define SET_RA(val)  (reg_ra = (double) (val))
+#define SET_RA(val)  (reg_ra = (float) (val))
 
 /*
 /   Return values to take exit N from interface

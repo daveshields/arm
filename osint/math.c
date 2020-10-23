@@ -15,8 +15,8 @@ Copyright 2012-2017 David Shields
 #include "port.h"
 
 #include <errno.h>
+#ifdef ARM_FP
 
-#if FLOAT & !MATHHDWR
 
 #include <math.h>
 
@@ -24,6 +24,8 @@ Copyright 2012-2017 David Shields
 int errno;
 #endif
 
+
+// no real arithmetic for arm boootstrap
 extern double inf;	// infinity
 
 /*
