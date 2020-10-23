@@ -27,7 +27,6 @@ void cvd__() {
 int dvi__()
 {
 	reg_ia /= reg_w0;
-	return NORMAL_EXIT;
 }
 
 /*
@@ -36,6 +35,5 @@ int dvi__()
 int rmi__()
 {
 	reg_ia %= reg_w0;
-	return NORMAL_EXIT;
 }
 
