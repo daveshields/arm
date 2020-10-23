@@ -68,6 +68,8 @@ int zysxi()
     long	i;
 #endif					// EXECFILE
 
+    // force exit on arm
+    return 1;
     char	fileName[256], tmpfnbuf[256];
     word	*stackbase;
     word	retval, stacklength;

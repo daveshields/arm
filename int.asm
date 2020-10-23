@@ -494,12 +494,7 @@ minimal:
 
 	str	xs,osisp	@ save osint stack pointer
 	ldr	w1,compsp
-	eors	w1,w1		@ compare to zero
-	cmp	w1,w1		@ is there a compiler stack?
-	beq	min1		@ jump if none yet
-	ldr	w2,compsp	@ address of compsp
-	ldr	w2,[w2]
-	tst	w2,w2
+	tst	w1,w1
 	movne	xs,w2		@ switch to compiler stack
 	ldr	w0,minimal_id	@ ordinal in calltab
 #	for 64: have  
@@ -515,12 +510,19 @@ minimal:
 	str	wc,reg_wc
 	str	xr,reg_xr
 	str	xl,reg_xl
-	mov	PC,LR
+	mov	PC,LR		@ return to minimal code
+
+	.global	cvd__
+cvd__:
+	str	wc,reg_ia
+	bl	cvd_
+	ldr	wc,=reg_ia
+	ldr	wa,=reg_wa
+	mov	PC,LR		@ return to minimal code
 
 
-	.extern	dvi__
+	.global	dvi__
 dvi__:
-	push	{LR}
 	tst	w0,w0
 	cmp	w0,w0			@ compare to see if zero (also clear v flag)
 	beq	1f
@@ -535,13 +537,11 @@ dvi__:
 	mov	w2,w1
 	muls	w1,w2,w1		@ force overflow to be set
 2:
-	pop	{LR}
-	mov	PC,LR
+	mov	PC,LR			@ return to minimal code
 
-	.extern	rmi__
+	.global	rmi__
 rmi__:
 	tst	w0,w0
-	push	{LR}
 	cmp	w0,w0			@ compare to see if zero (also clear v flag)
 	beq	1f
 	str	w0,reg_w0		@ store argument
@@ -555,8 +555,7 @@ rmi__:
 	mov	w2,w1
 	muls	w1,w2,w1		@ force overflow to be set
 2:
-	pop	{LR}
-	mov	PC,LR
+	mov	PC,LR			@ return to minimal code
 
 	.align	2
 	.global		hasfpu

@@ -209,14 +209,6 @@ calltab:
 	msr	APSR,w1
 	.endm
 
-	.extern	cvd__
-	.macro	cvd_
-	str	wc,reg_ia
-	bl	cvd__
-	ldr	wc,=reg_ia
-	ldr	wa,=reg_wa
-	.endm
-
 
 #	.macro	adi_	arg
 #	add	ia,\arg
@@ -227,41 +219,41 @@ calltab:
 #	on return from dvi__ and rmi__, result is in wc (ia) (if defined), and
 #	w0 is zero for normal return, or 1 if overflow or divide by zero.
 
-	.extern	dvi__
-	.macro	dvi_
-	tst	w0,w0
-	cmp	w0,w0			@ compare to see if zero (also clear v flag)
-	beq	1f
-	str	w0,reg_w0		@ store argument
-	str	wc,reg_ia		@ make wc (ia) accessible to osint procedure
-	bl	dvi__
-	ldr	wc,=reg_wc
-	b	2f
-1:					@ here if divide by zero, force overflow
-	mov	w1,#1
-	lsl	w1,w1,#30		@ large integer
-	mov	w2,w1
-	muls	w1,w2,w1		@ force overflow to be set
-2:
-	.endm
-
-	.extern	rmi__
-	.macro	rmi_
-	tst	w0,w0
-	cmp	w0,w0			@ compare to see if zero (also clear v flag)
-	beq	1f
-	str	w0,reg_w0		@ store argument
-	str	wc,reg_ia		@ make wc (ia) accessible to osint procedure
-	bl	rmi__
-	ldr	wc,=reg_wc
-	b	2f
-1:					@ here if divide by zero, force overflow
-	mov	w1,#1
-	lsl	w1,w1,#30		@ large integer
-	mov	w2,w1
-	muls	w1,w2,w1		@ force overflow to be set
-2:
-	.endm
+#	.extern	dvi__
+#	.macro	dvi_
+#	tst	w0,w0
+#	cmp	w0,w0			@ compare to see if zero (also clear v flag)
+#	beq	1f
+#	str	w0,reg_w0		@ store argument
+#	str	wc,reg_ia		@ make wc (ia) accessible to osint procedure
+#	bl	dvi__
+#	ldr	wc,=reg_wc
+#	b	2f
+#1:					@ here if divide by zero, force overflow
+#	mov	w1,#1
+#	lsl	w1,w1,#30		@ large integer
+#	mov	w2,w1
+#	muls	w1,w2,w1		@ force overflow to be set
+#2:
+#	.endm
+#
+#	.extern	rmi__
+#	.macro	rmi_
+#	tst	w0,w0
+#	cmp	w0,w0			@ compare to see if zero (also clear v flag)
+#	beq	1f
+#	str	w0,reg_w0		@ store argument
+#	str	wc,reg_ia		@ make wc (ia) accessible to osint procedure
+#	bl	rmi__
+#	ldr	wc,=reg_wc
+#	b	2f
+#1:					@ here if divide by zero, force overflow
+#	mov	w1,#1
+#	lsl	w1,w1,#30		@ large integer
+#	mov	w2,w1
+#	muls	w1,w2,w1		@ force overflow to be set
+#2:
+#	.endm
 
 
 #	%macro	ino_	arg

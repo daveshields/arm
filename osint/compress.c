@@ -46,6 +46,9 @@ This file is part of Macro SPITBOL.
 */
 
 
+#ifdef INCLUDE_COMPRESS
+
+// compress not available in arm
 #include "port.h"
 #include "sproto.h"
 #include <string.h>
@@ -465,3 +468,4 @@ uword size;
     output_code(MAX_VALUE);						// Output the buffer end code
     return 0;
 }
+#endif

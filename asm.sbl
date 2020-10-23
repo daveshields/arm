@@ -856,6 +856,7 @@ jump_8
 
 *	w,x, map register name
 
+	genop('bx' cond, lbl)				:(return)
 	genop(op cond, PC, lbl)				:(return)
 
 jump_9
@@ -1496,7 +1497,7 @@ g_ent.2
 g_bri
 
 	fetch(w1,arg1)
-	jump(,w1)				:(opdone)
+	jump(,minarg(7,'w1'))				:(opdone)
 
 *	*   1.8	 LEI  _x_	  load entry point identification
 
@@ -2390,8 +2391,7 @@ g_dvi
 *	Use library procedure.
 
 	fetch(w0,arg1)
-	genop('bl','dvi__')
-	genop('mov',PC,LR)				:(opdone)
+	genop('bl','dvi__')				:(opdone)
 
 *	In ARM V7, signed and unsigned division are avilable in the THUMB instruction set, with
 *	the instructions UDIV and SDIV.
@@ -2419,8 +2419,7 @@ g_rmi
 *	Use library procedure.
 
 	fetch(w0,arg1)
-	genop('bl','rmi__')
-	genop('mov',PC,LR)				:(opdone)
+	genop('bl','rmi__')				:(opdone)
 
 	fetch(w0,arg1)
 	genop('rmi_')					:(opdone)

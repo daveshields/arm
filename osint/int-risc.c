@@ -12,6 +12,7 @@ Copyright 2012-2015 David Shields
 
 #include "port.h"
 
+// checks for division by zero are made by caller
 
 void cvd__() {
 	
@@ -25,8 +26,7 @@ void cvd__() {
  */
 int dvi__()
 {
-	if (reg_w0 == 0) return EXIT_1;
-	reg_ia / reg_w0;
+	reg_ia /= reg_w0;
 	return NORMAL_EXIT;
 }
 
@@ -35,9 +35,7 @@ int dvi__()
  */
 int rmi__()
 {
-	if (reg_w0 == 0) return EXIT_1;
 	reg_ia %= reg_w0;
 	return NORMAL_EXIT;
 }
 
-#endif					// SUN4

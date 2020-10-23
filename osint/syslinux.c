@@ -639,6 +639,9 @@ int type;
     word	save_wa, save_wb, save_ia, save_xr;
     int		result;
 
+    // makeexec not available on arm so force error return
+    return 1;
+#ifdef MAKEEXEC
     // save zysxi()'s argument registers (but not XL)
     save_wa = reg_wa;
     save_wb = reg_wb;
@@ -659,6 +662,7 @@ int type;
     reg_ia = save_ia;
     reg_xr = save_xr;
     return result;
+#endif
 }
 
 /*  uppercase( word )
