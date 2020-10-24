@@ -1063,6 +1063,7 @@ re4:	ldr	w1,stbas_
 	bl	minimal			@ no return
 
 	.endif
+
 #%ifdef z_trace
 #	.extern	zz_ra
 #	.global	zzz
