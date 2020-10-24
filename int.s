@@ -412,7 +412,7 @@ startup:
 	ldr	w2,=ppoff
 	mov     w0,w2			@ save for use later
 	ldr	xs,=osisp		@ switch to new c stack
-	ldr	w1,calltab__
+	ldr	w1,calltab_
 	str	w1,minimal_id
 	bl	minimal			@ load regs, switch stack, start compiler
 
@@ -962,26 +962,25 @@ restart:
 	add	w1,w1,#scstr		@ address of scstr entry
 	ldr	xr,[w1]
 	cmp	xl,xr			@ any stack to transfer?
-	beq	re3			@  skip if not
+	beq	3f			@  skip if not
 	sub	xl,xl,#4
-re1:	
+1:	
 # ??
 #	lodsd				@ get old stack word to w0
 	ldr	w0,[xl]
 	add	xl,#4
 
 	cmp	w0,wc			@ below old stack bottom?
-	blo	re2			@   j. if w0 < wc
+	blo	2f			@   j. if w0 < wc
 	cmp	w0,wa			@ above old stack top?
-	bhi	re2			@   j. if w0 > wa
+	bhi	2f			@   j. if w0 > wa
 	sub	w0,wb			@ within old stack, perform relocation
-re2:	
+2:	
 	push	{w0}			@ transfer word of stack
 	cmp	xl,xr			@ if not at end of relocation then
-	bhi	re1			@ branch if ge (unsigned)
-	beq	re			@ loop back
-
-re3:	
+	bhi	1b			@ branch if ge (unsigned)
+	beq	1b			@ loop back
+3:	
 	str	xs,compsp		@ save compiler's stack pointer
 	ldr	xs,=osisp		@ back to osint's stack pointer
 	bl   	rereloc			@ relocate compiler pointers into stack

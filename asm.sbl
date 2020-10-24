@@ -2829,7 +2829,7 @@ g_cmc
 	loop_lbl = genlab()
 	done_lbl = genlab()
 	
-	genopl(looplbl,'nop')
+	genopl(loop_lbl,'nop')
 	fetch(w1,arg_xlp,'char')
 	fetch(w2,arg_xrp,'char')
 	genop('cmp',w1,w2)
@@ -2843,6 +2843,7 @@ g_cmc
 	genopl(done_lbl)
 	genop('eor',xl,xl)
 	genop('eor',xr,xr)
+	genopl(gen_lbl)
 							:(opdone)
 
 *	6.9	 TRC
