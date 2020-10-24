@@ -924,6 +924,8 @@ get_fp:
 	.set	scstr,cfp_c+cfp_c
 
 #
+	.if	0
+# restart only needed for save/load modules
 restart:
 #	pop	w0			@ discard return
 #	pop	w0			@ discard dummy
@@ -1060,6 +1062,7 @@ re4:	ldr	w1,stbas_
 	str	w0,minimal_id
 	bl	minimal			@ no return
 
+	.endif
 #%ifdef z_trace
 #	.extern	zz_ra
 #	.global	zzz
