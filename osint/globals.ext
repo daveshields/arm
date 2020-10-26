@@ -1,5 +1,20 @@
 /*
 Copyright 1987-2012 Robert B. K. Dewar and Mark Emmer.
+
+This file is part of Macro SPITBOL.
+
+    Macro SPITBOL is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 2 of the License, or
+    (at your option) any later version.
+
+    Macro SPITBOL is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Macro SPITBOL.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 /* Globals are defined in global.init, which is included in main.c
@@ -83,7 +98,8 @@ extern	struct ioblk ttyiobin;
         0,              /* tty BFBLK */ \
     STDERRFD,               /* file descriptor 2  */ \
     IO_INP+IO_OPN+IO_SYS+IO_CIN, /* flg1 */ \
-        0}              /* flg2 */ 
+        0,              /* flg2 */ \
+        EOL1}           /* end of line char 1 */ 
 
 #define ttyioboutinit {0,   /* type word */ \
         ORECSIZ,           /* length */ \
@@ -91,8 +107,9 @@ extern	struct ioblk ttyiobin;
         0,                 /* process id */ \
         0,                 /* tty BFBLK */ \
     STDERRFD,              /* file descriptor 2  */ \
-    IO_OUP+IO_OPN+IO_SYS+IO_COT+IO_WRC, /* flg1 */ 
-        0}                 /* flg2 */ 
+    IO_OUP+IO_OPN+IO_SYS+IO_COT+IO_WRC, /* flg1 */ \
+        0,                 /* flg2                             */ \
+        EOL1}              /* end of line char 1 */ 
 
 extern	struct ioblk ttyiobout;
 
@@ -104,7 +121,8 @@ extern	struct ioblk ttyiobout;
         0,             /* std input BFBLK */ \
         0,             /* file descriptor 0  */ \
         IO_INP+IO_OPN+IO_SYS,   /* flg1: */ \
-        0}             /* flg2:*/ 
+        0,             /* flg2:*/ \
+        EOL1}          /* end of line char 1 */ 
 
 extern	struct ioblk inpiob;
 
@@ -117,7 +135,8 @@ extern	struct ioblk inpiob;
         0,           /* no BFBLK needed */ \
         1,           /* file descriptor 1 */ \
         IO_OUP+IO_OPN+IO_SYS+IO_WRC,  /* flg1: */ \
-        0}           /* flg2: */ 
+        0,           /* flg2: */ \
+        EOL1}        /* end of line char 1 */ 
 
 extern	struct ioblk oupiob;
 
@@ -156,6 +175,7 @@ extern	word * lmodstk;
 
  */
 extern	extern int reg_size;
+extern	extern int hasfpu;
 extern	extern char cprtmsg[];
 extern	extern word reg_block;
 

@@ -1,6 +1,21 @@
 /*
 Copyright 1987-2012 Robert B. K. Dewar and Mark Emmer.
-Copyright 2012-2017 David Shields
+Copyright 2012-2013 David Shields
+
+This file is part of Macro SPITBOL.
+
+    Macro SPITBOL is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 2 of the License, or
+    (at your option) any later version.
+
+    Macro SPITBOL is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Macro SPITBOL.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 /*
@@ -15,8 +30,8 @@ Copyright 2012-2017 David Shields
 #include "port.h"
 
 #include <errno.h>
-#ifdef ARM_FP
 
+#if FLOAT & !MATHHDWR
 
 #include <math.h>
 
@@ -24,86 +39,101 @@ Copyright 2012-2017 David Shields
 int errno;
 #endif
 
-
-// no real arithmetic for arm boootstrap
 extern double inf;	// infinity
 
 /*
  * f_atn - arctangent
  */
-void f_atn()
+double f_atn(ra)
+double ra;
 {
-	reg_ra = atan(reg_ra);
+    return atan(ra);
 }
+
 
 /*
  * f_chp - chop
  */
-void f_chp()
+double f_chp(ra)
+double ra;
 {
-    if (reg_ra >= 0.0)
-        reg_ra =  floor(reg_ra);
+    if (ra >= 0.0)
+        return floor(ra);
     else
-        reg_ra =  ceil(reg_ra);
+        return ceil(ra);
 }
+
+
 
 /*
  * f_cos - cosine
  */
-void f_cos()
+double f_cos(ra)
+double ra;
 {
-    reg_ra =  cos(reg_ra);
+    return cos(ra);
 }
+
 
 
 /*
  * f_etx - e to the x
  */
-void f_etx()
+double f_etx(ra)
+double ra;
 {
+    double result;
     errno = 0;
-    reg_ra = exp(reg_ra);
-    if (errno) {
-	reg_ra = inf;
-    }
+    result = exp(ra);
+    return errno ? inf : result;
 }
 
+
+
 /*
- * f_lnf - natureg_ral log
+ * f_lnf - natural log
  */
-void f_lnf()
+double f_lnf(ra)
+double ra;
 {
+    double result;
     errno = 0;
-    reg_ra = log(reg_ra);
-    if (errno) {
-	reg_ra = inf;
-    }
+    result = log(ra);
+    return errno ? inf : result;
 }
+
+
 
 /*
  * f_sin - sine
  */
-void f_sin()
+double f_sin(ra)
+double ra;
 {
-    reg_ra = sin(reg_ra);
+    return sin(ra);
 }
 
+
 /*
- * f_sqr - square root  (reg_range checked by caller)
+ * f_sqr - square root  (range checked by caller)
  */
-void f_sqr()
+double f_sqr(ra)
+double ra;
 {
-    reg_ra = sqrt(reg_ra);
+    return sqrt(ra);
 }
+
 
 /*
  * f_tan - tangent
  */
-void f_tan()
+double f_tan(ra)
+double ra;
 {
     double result;
-    result = tan(reg_ra);
     errno = 0;
-    reg_ra = errno ? inf : result;
+    result = tan(ra);
+    return errno ? inf : result;
 }
+
 #endif					// FLOAT & !MATHHDWR

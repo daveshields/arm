@@ -1,6 +1,6 @@
 /*
 Copyright 1987-2012 Robert B. K. Dewar and Mark Emmer.
-Copyright 2012-2017 David Shields
+Copyright 2012-2013 David Shields
 
 This file is part of Macro SPITBOL.
 
@@ -28,66 +28,69 @@ This file is part of Macro SPITBOL.
 #include "port.h"
 #if (FLOAT & !FLTHDWR) | EXTFUN
 
-
-// overflow codes
-// OF = 0x80
-// cf = 0x01
-// zr = 0x40
-
-
-void f_adr() {			// add real
-	reg_ra += reg_ra;
-	return;
-}
-
-void f_sbr() {			// subtract real
-	reg_ra -= reg_ra;
-	return;
-}
-
-void f_mlr() {			// multiply real
-	reg_ra *= reg_ra;
-	return;
-}
-
-void f_dvr() {			// divide real
-	if (*reg_ra != 0.0) {
-		reg_ra /= reg_ra;
-		reg_fl = 0;
-	}
-	else
-		reg_fl = 1;
-	return;
-}
-
-void f_ngr() {			// negate real
-	reg_ra = -reg_ra;
-	return;
-}
-
-void f_itr() {			// integer to real
-	reg_ra = (float) reg_ia;
-	return;
-}
-
-void f_rti() {			// real to integer
-	reg_ia = reg_ra;
+/*
+ * f_2_i - float to integer
+ */
+IATYPE f_2_i(ra)
+double ra;
+{
+    return (IATYPE)ra;
 }
 
 
-#include <stdio.h>
-void f_cpr() {
-	if ( reg_ra == 0.0) 
-		reg_fl =  0; 
-	else if ( reg_ra < 0.0) 
-		reg_fl = -1; 
-	else 
-		reg_fl =  1; 
+/*
+ * i_2_f - integer to float
+ */
+double i_2_f(ia)
+IATYPE ia;
+{
+    return ia;
 }
 
-void f_pra () {
+/*
+ * f_add - floating add to accumulator
+ */
+double f_add(arg, ra)
+double arg,ra;
+{
+    return ra+arg;
 }
 
+/*
+ * f_sub - floating subtract from accumulator
+ */
+double f_sub(arg, ra)
+double arg,ra;
+{
+    return ra-arg;
+}
+
+/*
+ * f_mul - floating multiply to accumulator
+ */
+double f_mul(arg, ra)
+double arg,ra;
+{
+    return ra*arg;
+}
+
+
+/*
+ * f_div - floating divide into accumulator
+ */
+double f_div(arg, ra)
+double arg,ra;
+{
+    return ra/arg;
+}
+
+/*
+ * f_neg - negate accumulator
+ */
+double f_neg(ra)
+double ra;
+{
+    return -ra;
+}
 
 #endif					// (FLOAT & !FLTHDWR) | EXTFUN
-

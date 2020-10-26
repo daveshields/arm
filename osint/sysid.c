@@ -1,6 +1,21 @@
 /*
 Copyright 1987-2012 Robert B. K. Dewar and Mark Emmer.
-Copyright 2012-2017 David Shields
+Copyright 2012-2013 David Shields
+
+This file is part of Macro SPITBOL.
+
+    Macro SPITBOL is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 2 of the License, or
+    (at your option) any later version.
+
+    Macro SPITBOL is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Macro SPITBOL.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 /*
@@ -25,8 +40,6 @@ Copyright 2012-2017 David Shields
 */
 
 #include "port.h"
-#include <time.h>
-#include <string.h>
 
 /*
 /   define actual headers elsewhere to overcome problems in initializing
@@ -34,24 +47,17 @@ Copyright 2012-2017 David Shields
 /	be active with an error message when zysid is called.
 */
 
-int zysid()
+zysid()
 
 {
-    time_t now;
     register char *cp;
-    char * s;
-    int i;
-	
 
-    SET_XR( pid1blk );
-    now = time(NULL);
-    gettype( pid2blk, id2blk_length );
-    cp = pid2blk->str + pid2blk->len;
+    SET_XR( pID1 );
+    gettype( pID2BLK, ID2BLK_LENGTH );
+    cp = pID2BLK->str + pID2BLK->len;
     *cp++ = ' ';
     *cp++ = ' ';
-    s = ctime(&now);
-    for (i=0;i<strlen(s);i++) *cp++ = s[i];
-    pid2blk->len = pid2blk->len + 2 + strlen(s);
-    SET_XL( pid2blk );
+    pID2BLK->len += 2 + storedate(cp, ID2BLK_LENGTH - pID2BLK->len);
+    SET_XL( pID2BLK );
     return NORMAL_RETURN;
 }

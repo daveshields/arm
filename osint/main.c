@@ -1,6 +1,21 @@
 /*
 Copyright 1987-2012 Robert B. K. Dewar and Mark Emmer.
-Copyright 2012-2017 David Shields
+Copyright 2012-2013 David Shields
+
+This file is part of Macro SPITBOL.
+
+    Macro SPITBOL is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 2 of the License, or
+    (at your option) any later version.
+
+    Macro SPITBOL is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Macro SPITBOL.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 /*
@@ -27,7 +42,7 @@ Copyright 2012-2017 David Shields
 */
 #define GLOBALS			// global variables will be defined in this module
 #include "port.h"
-#include <stdint.h>
+//#include <stdio.h>
 
 #ifdef DEBUG
 #undef DEBUG			// Change simple -DDEBUG on command line to -DDEBUG=1
@@ -62,6 +77,26 @@ char	*argv[];
     dcdone = 0;
 
 #if EXECFILE
+#if EXECSAVE
+    /* On some platforms we implement execfiles differently.  A save file
+     * is appended to the SPITBOL executable file, and will be read in
+     * just like a save file specified on the command line.
+     *
+     * We have to check for the presence of a save file in the executable.
+     */
+    i = checksave(gblargv[0]);
+    if (i) {
+        inpptr = gblargv;
+        if (getsave(i) != 1)
+            __exit(1);
+        close(i);
+
+        /* set up things that normally would be retained in the
+         * a Unix exec file.
+         */
+        originp = dup(0);
+        readshell0 = 0;
+#else					// EXECSAVE
     /*
     /   If this is a restart of this program from a load module, set things
     /   up for a restart.  Transfer control to function restart which actually
@@ -70,8 +105,9 @@ char	*argv[];
     if ( lmodstk ) {
         if ( brk( (char *) topmem ) < 0 ) { // restore topmem to its prior state
             wrterr( "Insufficient memory to load." );
-            exit(1);
+            __exit(1);
         }
+#endif					// EXECSAVE
 
         cmdcnt = 1;       // allow access to command line args
         inpptr = 0;				// no compilation input files
@@ -80,8 +116,13 @@ char	*argv[];
         pathptr = (char *)-1L;	// include paths unknown
         clrbuf();				// no chars left in std input buffer
         sfn = 0;
+#if FLOAT
+        hasfpu = checkfpu();	// check for floating point hardware
+#endif					// FLOAT
+#if !EXECSAVE
         heapmove();				// move the heap up
         malloc_empty();			// mark the malloc region as empty
+#endif
         zysdc();							// Brag if necessary
         restart( (char *)0L, lowsp );       // call restart to continue execution
     }
@@ -106,8 +147,13 @@ char	*argv[];
     */
     swcinp( inpcnt, inpptr );
 
+#if FLOAT
+    /*
+     * test if floating point hardware present
+     */
+    hasfpu = checkfpu();
+#endif					// FLOAT
 
-#ifdef ARM_SAVEFILE
     switch (getsave(getrdfd())) {
     case 1:					// save file loaded
         inpcnt = 0;               // v1.02 no more cmd line files
@@ -122,9 +168,8 @@ char	*argv[];
 #endif					// RUNTIME
 
     case -1:				// error loading save file
-        exit(1);
+        __exit(1);
     }
-#endif
 
     /*
     /	Setup output and issue brag message
@@ -138,7 +183,7 @@ char	*argv[];
      */
     if ((char *)sbrk(0) == (char *)-1) {
         wrterr( "Insufficient memory.  Try smaller -d, -m, or -s command line options." );
-        exit( 1 );
+        __exit( 1 );
     }
 
     /*
@@ -146,8 +191,10 @@ char	*argv[];
     */
     if ((lowsp = sbrk((uword)stacksiz)) == (char *) -1) {
         wrterr( "Stack memory unavailable." );
-        exit( 1 );
+        __exit( 1 );
     }
+//	fprintf(stderr,"lowsp\t%x\n",lowsp);
+//	fprintf(stderr,"lowsp\t%ld\n",lowsp);
     /*
     /   Allocate initial increment of dynamic memory.
     /
@@ -155,10 +202,14 @@ char	*argv[];
 
     if ((basemem = (char *)sbrk((uword)memincb)) == (char *) -1) {
         wrterr( "Workspace memory unavailable." );
-        exit( 1 );
+        __exit( 1 );
     }
     topmem = basemem + memincb;
     maxmem = basemem + databts;
+//	fprintf(stderr,"topmem\t%xx\n",topmem);
+//	fprintf(stderr,"topmem\t%ld\n",topmem);
+//	fprintf(stderr,"basemem\t%xx\n",basemem);
+//	fprintf(stderr,"basemem\t%ld\n",basemem);
 
 
     /*
@@ -167,27 +218,18 @@ char	*argv[];
     */
     SET_CP( 0 );
     SET_IA( 0 );
-/* For x32-x86, we pass value of largest integer in WA on startup. It's not possible to set this up
-   at compile time. 
- */
     SET_WA( 0 );
-#ifdef m32
-    long mxint = INT32_MAX;
-#else
-    long mxint = INT64_MAX;
-#endif
-//    reg_wb = mxint;
-    SET_WB( mxint );
+    SET_WB( 0 );
     SET_WC( 0 );
     SET_XR( basemem );
     SET_XL( topmem - sizeof(word) );
+//    fprintf(stderr,"basemem %x\n",basemem);
 
     /*
     /   Startup compiler.
     */
-#ifdef Z_TRACE
+//	fprintf(stderr,"calling startup\n");
     zz_init();
-#endif
     startup();
 #endif					// !RUNTIME
 
@@ -207,7 +249,7 @@ void wrterr(s)
 char	*s;
 {
     write( STDERRFD, s, length(s) );
-    write( STDERRFD,  "\n", 1 );
+    write( STDERRFD,  EOL, 1 );
 }
 
 void wrtintz(n)
@@ -230,7 +272,7 @@ void wrtmsg(s)
 char	*s;
 {
     write( STDOUTFD, s, length(s) );
-    write( STDOUTFD,  "\n", 1 );
+    write( STDOUTFD,  EOL, 1 );
 }
 
 /*

@@ -1,17 +1,33 @@
 /*
 Copyright 1987-2012 Robert B. K. Dewar and Mark Emmer.
-Copyright 2012-2017 David Shields
+Copyright 2012-2013 David Shields
+
+This file is part of Macro SPITBOL.
+
+    Macro SPITBOL is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 2 of the License, or
+    (at your option) any later version.
+
+    Macro SPITBOL is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Macro SPITBOL.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 /*
+/	File:  SPROTO.H	Version 1.02
+/	----------------------------
+/
 /	Function prototypes for argument type checking.
 /	This files are unique to SPITBOL.
 */
 
 #ifndef	_sproto_
 #define	_sproto_
-
-#include <stddef.h> 
 
 typedef int File_handle;
 typedef int File_mode;
@@ -21,6 +37,7 @@ extern	union block *	alloc (word nchars);
 extern	struct scblk *	alocs (word nchars);
 extern	union block *	alost (word nchars);
 extern	int			appendext (char *path, char *ext, char *result, int force);
+extern	int			arg2scb ( int req, int argc, char *argv[], struct scblk *scptr, int maxs );
 #if EXTFUN
 extern  union block *   callef (struct efblk *efb, union block **sp, word nargs);
 #endif
@@ -64,7 +81,7 @@ extern	char **		getargs (int argc, char *argv[]);
 extern	double		get_ra ( void );
 extern   FILEPOS     geteof ( struct ioblk *ioptr );
 extern	void		gethost ( struct scblk *scptr, word maxlen );
-extern	int			getint ( struct icblk *icp, long *pword );
+extern	int			getint ( struct icblk *icp, IATYPE *pword );
 extern	char		*getnum ( char *cp, uword *ip );
 extern	File_handle	getprfd ( void );
 extern	struct ioblk *	getpriob ( void );
@@ -136,6 +153,7 @@ extern	void		setoptions (word flags);
 extern	void		setout ( void );
 extern	void		setprfd ( File_handle fd );
 extern	void		setrdfd ( File_handle fd );
+extern	int			sioarg ( int ioflg, struct ioblk *ioptr, struct scblk *scptr );
 extern	File_handle	spit_open ( char *Name, Open_method Method, File_mode Mode, int Access );
 extern	void		startbrk ( void );
 extern	void		startup (void);
@@ -170,7 +188,7 @@ extern	int			zysdm ( void );
 extern	int			zysdt ( void );
 extern	int			zysea ( void );
 extern	int			zysef ( void );
-extern	int 		zysej ( void );
+extern	void		zysej ( void );
 extern	int			zysem ( void );
 extern	int			zysen ( void );
 extern	int			zysep ( void );

@@ -1,6 +1,21 @@
 /*
 Copyright 1987-2012 Robert B. K. Dewar and Mark Emmer.
-Copyright 2012-2017 David Shields
+Copyright 2012-2013 David Shields
+
+This file is part of Macro SPITBOL.
+
+    Macro SPITBOL is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 2 of the License, or
+    (at your option) any later version.
+
+    Macro SPITBOL is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Macro SPITBOL.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 /*
@@ -19,8 +34,8 @@ Copyright 2012-2017 David Shields
 
 #include "port.h"
 
-char htype[] = "x86-64";
-char osver[] = ":unix ";
+char htype[] = "80386";
+char osver[] = ":Linux ";
 
 #include <fcntl.h>
 
@@ -29,7 +44,7 @@ struct	scblk	*scptr;
 word	maxlen;
 
 {
-    struct scblk *pheadv = GET_DATA_OFFSET(headv,struct scblk *);
+    struct scblk *pHEADV = GET_DATA_OFFSET(HEADV,struct scblk *);
     int cnt = 0;
     word fd;
 
@@ -54,8 +69,8 @@ word	maxlen;
         scp = scptr->str + scptr->len;
         scp = mystrcpy(scp,osver);
         scp = mystrcpy(scp,":Macro SPITBOL ");
-        scp += mystrncpy(scp, pheadv->str, pheadv->len );
-        scp += mystrncpy(scp, pid1blk->str, (int)pid1blk->len);
+        scp += mystrncpy(scp, pHEADV->str, pHEADV->len );
+        scp += mystrncpy(scp, pID1->str, (int)pID1->len);
         *scp++ = ' ';
         *scp++ = '#';
         cnt = scp - scptr->str;

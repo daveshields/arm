@@ -1,9 +1,32 @@
 /*
 Copyright 1987-2012 Robert B. K. Dewar and Mark Emmer.
-Copyright 2012-2017 David Shields
+Copyright 2012-2013 David Shields
+
+This file is part of Macro SPITBOL.
+
+    Macro SPITBOL is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 2 of the License, or
+    (at your option) any later version.
+
+    Macro SPITBOL is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Macro SPITBOL.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 /*
+/	File:  SYSEA.C		Version:  01.00
+/	---------------------------------------
+/
+/	Contents:	Function zysea
+*/
+
+/*
+/
 /	zysea - error advise
 /
 /	Here we catch errors before they are printed.
@@ -50,7 +73,7 @@ enum stage {
     STGNO				// Number of codes
 };
 
-int zysea()
+zysea()
 {
     register struct scblk *fnscblk = XL(struct scblk *);
     register char *p;
@@ -58,7 +81,7 @@ int zysea()
 
     // Display file name if present
     if (fnscblk->len) {
-        p = ptscblk->str;
+        p = pTSCBLK->str;
         p = eacpy(p, fnscblk->str, (int)fnscblk->len);
         // Display line number if present
         if (WC(unsigned int)) {
@@ -72,8 +95,8 @@ int zysea()
             *p++ = ')';
         }
         p = eacpy(p, " : ", 3);
-        ptscblk->len = p - ptscblk->str;
-        SET_XR( ptscblk );
+        pTSCBLK->len = p - pTSCBLK->str;
+        SET_XR( pTSCBLK );
         return NORMAL_RETURN;
     }
     SET_XR(0L);

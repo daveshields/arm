@@ -1,6 +1,21 @@
 /*
 Copyright 1987-2012 Robert B. K. Dewar and Mark Emmer.
-Copyright 2012-2017 David Shields
+Copyright 2012-2013 David Shields
+
+This file is part of Macro SPITBOL.
+
+    Macro SPITBOL is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 2 of the License, or
+    (at your option) any later version.
+
+    Macro SPITBOL is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Macro SPITBOL.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 /*
@@ -309,7 +324,7 @@ char	*argv[];
             case '9':
                 if (++maxf >= Ncmdf) {
                     wrterr( "Too many files on command line." );
-                    exit(1);
+                    __exit(1);
                 }
                 cp = getnum(cp - 1, (uword *)&(cfiles[maxf].filenum));
                 cfiles[maxf].fileptr = filenamearg(argc, argv);
@@ -325,7 +340,7 @@ badopt:
                 write( STDERRFD, "Illegal option -", 17 );
                 write( STDERRFD,  (cp - 1), 1 );
                 wrterr( "?" );
-                exit(1);			// V1.08
+                __exit(1);			// V1.08
             }
     }
 

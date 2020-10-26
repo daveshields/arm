@@ -1,6 +1,28 @@
 /*
 Copyright 1987-2012 Robert B. K. Dewar and Mark Emmer.
-Copyright 2012-2017 David Shields
+Copyright 2012-2013 David Shields
+
+This file is part of Macro SPITBOL.
+
+    Macro SPITBOL is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 2 of the License, or
+    (at your option) any later version.
+
+    Macro SPITBOL is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Macro SPITBOL.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+/*
+/	File:  SYSEM.C		Version:  2.01
+/	---------------------------------------
+/
+/	Contents:	Function zysem
 */
 
 /*
@@ -47,10 +69,10 @@ extern unsigned char ERRDIST phrases[];
 word msgcopy (word n, unsigned char ERRDIST *source, char *dest );
 word special (word c);
 
-int zysem()
+zysem()
 {
-    ptscblk->len = msgcopy( WA(word), errors, ptscblk->str );
-    SET_XR( ptscblk );
+    pTSCBLK->len = msgcopy( WA(word), errors, pTSCBLK->str );
+    SET_XR( pTSCBLK );
     return NORMAL_RETURN;
 }
 

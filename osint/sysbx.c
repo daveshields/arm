@@ -1,6 +1,28 @@
 /*
 Copyright 1987-2012 Robert B. K. Dewar and Mark Emmer.
-Copyright 2012-2017 David Shields
+Copyright 2012-2013 David Shields
+
+This file is part of Macro SPITBOL.
+
+    Macro SPITBOL is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 2 of the License, or
+    (at your option) any later version.
+
+    Macro SPITBOL is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Macro SPITBOL.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
+/*
+/	File:  SYSBX.C		Version:  01.06
+/	---------------------------------------
+/
+/	Contents:	Function zysbx
 */
 
 /*
@@ -27,7 +49,7 @@ Copyright 2012-2017 David Shields
 
 #include "port.h"
 
-int zysbx()
+zysbx()
 {
 #if !RUNTIME
 
@@ -46,9 +68,9 @@ int zysbx()
     */
     if ( spitflag & WRTEXE)
     {
-        ptscblk->len = appendext( *inpptr, BINEXT, ptscblk->str, 1 );
+        pTSCBLK->len = appendext( *inpptr, BINEXT, pTSCBLK->str, 1 );
 
-        if ( makeexec( ptscblk, spitflag & NOEXEC ? 3 : 4 ) )
+        if ( makeexec( pTSCBLK, spitflag & NOEXEC ? 3 : 4 ) )
         {
             wrterr( "Error writing load module." );
             zysej();
@@ -62,8 +84,8 @@ int zysbx()
     */
     if ( spitflag & WRTSAV)
     {
-        ptscblk->len = appendext( *inpptr, RUNEXT, ptscblk->str, 1 );
-        if ( makeexec( ptscblk, spitflag & NOEXEC ? -3 : -4 ) )
+        pTSCBLK->len = appendext( *inpptr, RUNEXT, pTSCBLK->str, 1 );
+        if ( makeexec( pTSCBLK, spitflag & NOEXEC ? -3 : -4 ) )
         {
             wrterr( "Error writing save file." );
             zysej();
@@ -92,7 +114,7 @@ int zysbx()
     swcoup( outptr );
 
 #else         // !RUNTIME
-    exit(1);
+    __exit(1);
 #endif					// !RUNTIME
 
     return NORMAL_RETURN;
