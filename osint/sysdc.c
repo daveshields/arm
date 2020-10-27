@@ -1,6 +1,6 @@
 /*
 Copyright 1987-2012 Robert B. K. Dewar and Mark Emmer.
-Copyright 2012-2013 David Shields
+Copyright 2012-2017 David Shields
 
 This file is part of Macro SPITBOL.
 
@@ -34,9 +34,9 @@ This file is part of Macro SPITBOL.
 
 #include "port.h"
 
-zysdc()
+int zysdc()
 {
-    struct scblk *pHEADV = GET_DATA_OFFSET(HEADV,struct scblk *);
+    struct scblk *pheadv = GET_DATA_OFFSET(headv,struct scblk *);
 	return;
     // announce name and copyright
     if (!dcdone && !(spitflag & NOBRAG))
@@ -50,8 +50,8 @@ zysdc()
 #endif					// RUNTIME
 
         write( STDERRFD, "  Release ", 10);
-        write( STDERRFD, pHEADV->str, pHEADV->len );
-        write( STDERRFD, pID1->str, pID1->len );
+        write( STDERRFD, pheadv->str, pheadv->len );
+        write( STDERRFD, pid1blk->str, pid1blk->len );
         wrterr( cprtmsg );
     }
     return NORMAL_RETURN;

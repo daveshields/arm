@@ -1,21 +1,6 @@
 /*
 Copyright 1987-2012 Robert B. K. Dewar and Mark Emmer.
-Copyright 2012-2013 David Shields
-
-This file is part of Macro SPITBOL.
-
-    Macro SPITBOL is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 2 of the License, or
-    (at your option) any later version.
-
-    Macro SPITBOL is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Macro SPITBOL.  If not, see <http://www.gnu.org/licenses/>.
+Copyright 2012-2017 David Shields
 */
 
 /************************************************************************\
@@ -25,7 +10,7 @@ This file is part of Macro SPITBOL.
 \************************************************************************/
 
 #define PRIVATEBLOCKS 1
-#include <unistd.h>
+//#include <unistd.h>
 #include "port.h"
 #include <stdlib.h>
 #include <fcntl.h>
@@ -47,8 +32,8 @@ typedef mword (*PFN)();				// pointer to function
 static union block *scanp;			// used by scanef/nextef
 static pXFNode xnfree = (pXFNode)0;	// list of freed blocks
 
-extern IATYPE f_2_i (double ra);
-extern double i_2_f (IATYPE ia);
+extern long f_2_i (double ra);
+extern double i_2_f (long ia);
 extern double f_add (double arg, double ra);
 extern double f_sub (double arg, double ra);
 extern double f_mul (double arg, double ra);
@@ -206,7 +191,7 @@ mword nargs;
 
     type = callextfun(efb, sp-1, nargs, SA(nbytes));	// make call with Stack Aligned nbytes
 
-    result = (union block *)pTSCBLK;
+    result = (union block *)ptscblk;
     switch (type) {
 
     case BL_XN:						// XNBLK    external block
@@ -233,7 +218,7 @@ mword nargs;
     case BL_NC:	 					// return result block unchanged
         break;
 
-    case BL_FS:						// string pointer at TSCBLK.str
+    case BL_FS:						// string pointer at tscblk.str
         result->fsb.fstyp = (*pTYPET)[BL_SC];
         p = result->fsb.fsptr;
         length = result->fsb.fslen;
@@ -249,10 +234,10 @@ mword nargs;
             *q++ = *p++;
         break;
 
-    case BL_FX:						// pointer to external data at TSCBLK.str
+    case BL_FX:						// pointer to external data at tscblk.str
         length = ((result->fxb.fxlen + sizeof(mword) - 1) &
                   -sizeof(mword)) + FIELDOFFSET(struct xnblk, xnu.xndta[0]);
-        if (length > GET_MIN_VALUE(MXLEN,mword)) {
+        if (length > GET_MIN_VALUE(mxlen,mword)) {
             result = (union block *)0;
             break;
         }
@@ -413,7 +398,7 @@ int io;
     pXFNode pnode;
 
     MINSAVE();
-    for (dnamp = GET_MIN_VALUE(DNAMP,union block *);
+    for (dnamp = GET_MIN_VALUE(dnamp,union block *);
             scanp < dnamp; scanp = ((union block *) (MP_OFF(scanp,muword)+blksize)) {
         type = scanp->scb.sctyp;				// any block type lets us access type word
         SET_WA(type);
@@ -472,7 +457,7 @@ char *newname;
  */
 void scanef()
 {
-    scanp = GET_MIN_VALUE(DNAMB,union block *);
+    scanp = GET_MIN_VALUE(dnamb,union block *);
 }
 
 
@@ -617,165 +602,6 @@ int brkx( void *addr )
 
 
 
-#if EXECSAVE
-#include </usr/ucbinclude/a.out.h>
-#include "save.h"
-extern int aoutfd;
-/*
- * checksave - Check if we are being started from a save file.
- *
- * Input: Name of file to inspect.
- *
- * Returns 0 if not, else it returns the file handle of a file
- * positioned to the first byte of the save information.
- */
-int checksave(char *namep)
-{
-    int fd;
-    uword w, size;
-    struct exec e;
-    long position;
-
-    fd = openexe(namep);
-    if (fd == -1)
-        return 0;
-
-    size = read(fd, (void *)&e, sizeof(struct exec));
-
-    if (size == sizeof(struct exec))
-    {
-        position = N_STROFF(e);
-        if (lseek(fd, position, 0) == position)
-        {
-            size = read(fd, (void *)&w, sizeof(w));
-            if (size == sizeof(w))
-            {
-                if (w == OURMAGIC1)
-                {
-                    // no string section, and save file present
-                    lseek(fd, position, 0);		// back up over first 4 bytes
-                    return fd;
-                }
-                position = lseek(fd, 0, 1) + w;	// move to end of string section
-                if (lseek(fd, position, 0) == position)
-                {
-                    // read first word of save file if present
-                    size = read(fd, (void *)&w, sizeof(w));
-                    if (size == sizeof(w) && w == OURMAGIC1)
-                    {
-                        lseek(fd, position, 0);		// back up over first 4 bytes
-                        return fd;
-                    }
-                }
-            }
-        }
-    }
-
-    close(fd); // Failure
-    return 0;
-}
-
-
-/*
- * openexe - open SPITBOL's exe file (the one we are executing from)
- *			 for read-only input.
- */
-int openexe(char *name)
-{
-    int fd;
-    fd = spit_open( name, O_RDONLY, IO_PRIVATE | IO_DENY_WRITE,
-                    IO_OPEN_IF_EXISTS );
-    if (fd == -1)
-    {
-        char filebuf[1000];
-        initpath("path");		// try alternate paths
-        while (trypath(name,filebuf))
-        {
-            fd = spit_open( filebuf, O_RDONLY, IO_PRIVATE | IO_DENY_WRITE,
-                            IO_OPEN_IF_EXISTS );
-            if (fd != -1)
-                break;
-        }
-    }
-    return fd;
-}
-
-/*
- * saveend - Write save file and any closing information.
- *
- * After copying the SPITBOL executable to the target file, saveend
- * writes the Save file and updates any other information in the target file.
- *
- * Here after copying body of SPITBOL load file.
- *
- * After appending the save file, nothing in the file header needs updating.
- *
- */
-word saveend(word *stkbase, word stklen)
-{
-    word result;
-
-    result = putsave(stkbase, stklen);			   // append save file
-    return result;
-}
-
-
-/* savestart - perform actions prior to writing save file
- *			   for an executable module.
- *
- * We read the information from the SPITBOL executable header,
- * and return the number of bytes of the EXE file to copy.
- *
- * Input: bufp - pointer to buffer containing the first
- *		  size - size bytes from the file.
- *		  fd   - input file.  The file is positioned just past the
- *				 first size bytes.
- *
- * Output: Number of total bytes to copy from the file, or 0 if
- *		   there's something wrong with the file.
- *
- *		   Prior to copying the rest of the file, the size bytes at
- *		   bufp should be written out by the caller.  That is,
- *		   any changes made in the buffer by savestart are written
- *		   to the new file.
- *
- */
-long savestart(int fd, char *bufp, unsigned int size)
-{
-    struct exec *ep;
-    long fpos, position;
-    long imagesize;
-    uword w, s;
-
-    ep = (struct exec *)(bufp);
-
-    /* get overall size of file by positioning to end of string section,
-     * then restoring position
-     */
-    fpos = lseek(fd, 0, 1);		 // record current position
-    position = N_STROFF(*ep);
-    if (lseek(fd, position, 0) == position)
-    {
-        s = read(fd, (void *)&w, sizeof(w));
-        if (s == sizeof(w))
-        {
-            if (w == OURMAGIC1)
-                lseek(fd, position, 0);			// back up over start of old save file
-            else
-            {
-                position = lseek(fd, 0, 1) + w;	// move to end of string section
-                lseek(fd, position, 0);
-            }
-        }
-        imagesize = lseek(fd, 0, 1);		    // how much to copy
-    }
-    else
-        imagesize = 0L;
-
-    lseek(fd, fpos, 0);			 			// restore position
-    return imagesize;
-}
-#endif // EXECSAVE
 
 /*
  *-----------
@@ -813,6 +639,9 @@ int type;
     word	save_wa, save_wb, save_ia, save_xr;
     int		result;
 
+    // makeexec not available on arm so force error return
+    return 1;
+#ifdef MAKEEXEC
     // save zysxi()'s argument registers (but not XL)
     save_wa = reg_wa;
     save_wb = reg_wb;
@@ -823,7 +652,7 @@ int type;
     reg_xl = 0;
     reg_ia = type;
     reg_wb = 0;
-    reg_xr = GET_DATA_OFFSET(HEADV,word);
+    reg_xr = GET_DATA_OFFSET(headv,word);
 
     //  -1 is the normal return, so result >= 0 is an error
     result = zysxi() + 1;
@@ -833,5 +662,19 @@ int type;
     reg_ia = save_ia;
     reg_xr = save_xr;
     return result;
+#endif
+}
+
+/*  uppercase( word )
+ *
+ *  restricted upper case function.  Only acts on 'a' through 'z'.
+ */
+word 
+uppercase(c)
+word c;
+{
+    if (c >= 'a' && c <= 'z')
+        c += 'A' - 'a';
+    return c;
 }
 

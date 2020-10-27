@@ -1,6 +1,6 @@
 /*
 Copyright 1987-2012 Robert B. K. Dewar and Mark Emmer.
-Copyright 2012-2013 David Shields
+Copyright 2012-2017 David Shields
 
 This file is part of Macro SPITBOL.
 
@@ -46,6 +46,9 @@ This file is part of Macro SPITBOL.
 */
 
 
+#ifdef INCLUDE_COMPRESS
+
+// compress not available in arm
 #include "port.h"
 #include "sproto.h"
 #include <string.h>
@@ -208,7 +211,7 @@ unsigned int code;
         if (i++ >= 4000)
         {
             wrterr("Fatal error during save file expansion.");
-            __exit(1);
+            exit(1);
         }
     }
     *buffer = (unsigned char) code;
@@ -439,7 +442,7 @@ uword size;
         index = find_match(string_code, character);	// See if the string is in
         if (code_value[index] != -1)				// the table.  If it is,
             string_code = code_value[index];		// get the code value.  If
-        else										// the string is not in the
+        else						// the string is not in the
         {   // table, try to add it.
             if (next_code <= MAX_CODE)
             {
@@ -465,3 +468,4 @@ uword size;
     output_code(MAX_VALUE);						// Output the buffer end code
     return 0;
 }
+#endif

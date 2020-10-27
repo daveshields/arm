@@ -1,21 +1,6 @@
 /*
 Copyright 1987-2012 Robert B. K. Dewar and Mark Emmer.
-Copyright 2012-2013 David Shields
-
-This file is part of Macro SPITBOL.
-
-    Macro SPITBOL is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 2 of the License, or
-    (at your option) any later version.
-
-    Macro SPITBOL is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Macro SPITBOL.  If not, see <http://www.gnu.org/licenses/>.
+Copyright 2012-2017 David Shields
 */
 
 /*
@@ -41,11 +26,6 @@ This file is part of Macro SPITBOL.
 #define ENGINE		0	// not building engine version
 #endif
 
-/*
-#ifndef EXECSAVE
-#define EXECSAVE	0	/ * executable modules via save files * /
-#endif
-*/
 /*
 #ifndef	EXTFUN
 #define EXTFUN		0	/ * no external functions * /
@@ -96,7 +76,8 @@ This file is part of Macro SPITBOL.
 /*
  *  Other defaulted values that may be overridden in systype.h
  */
-#ifdef ARCH_X32
+#define m32
+#ifdef m32		// 32 bit words
 #ifndef INTBITS
 #define INTBITS		32
 #define MAXINT		0x7FFFFFFFL
@@ -106,25 +87,9 @@ This file is part of Macro SPITBOL.
 #define MAXPOSWORD	0x7FFFFFFFL
 #endif
 #ifndef IABITS
-#define IABITS      	32          // Integer accumulator (IA) width
+#define IABITS      	32      // Integer accumulator (IA) width
 #endif
 #endif
-
-#ifdef ARCH_X64
-#ifndef INTBITS
-#define INTBITS		64
-#define MAXINT		0x7FFFFFFFFFFFFFFFL
-#endif
-#ifndef WORDBITS
-#define WORDBITS	64
-#define MAXPOSWORD	0x7FFFFFFFFFFFFFFFL
-#endif
-#ifndef IABITS
-#define IABITS      	64
-#endif
-#endif
-
-
 
 /*
  *  If not defined in systype.h, disable it here.
@@ -135,13 +100,6 @@ This file is part of Macro SPITBOL.
 #define SYSVERSION 255
 #endif
 
-/*
-#if EXECSAVE			/ * EXECSAVE requires EXECFILE on * /
-#undef EXECFILE
-#define EXECFILE	1
-#endif
-*/
-
 // Define how the errors and phrases arrays will be accessed (see sysem.c)
 #ifndef ERRDIST
 #define ERRDIST
@@ -149,16 +107,16 @@ This file is part of Macro SPITBOL.
 
 #define GCCx86 (GCCi32 | GCCi64)
 
-typedef long word;
-typedef unsigned long uword;
+//	minimal datatypes in C. word is long.
+//	integer accumulator is long. real accumulator is double
 
-// Size of integer accumulator
-typedef long IATYPE;
+typedef long word;		// minimal word as signed
+typedef unsigned long uword;	// minimal word as unsigned value
 
-/*
-/   Define the default end of line characters.  Use Unix definitions
-/   as the default.  Override in systype.h.
-*/
+
+//   Define the default end of line characters.  Use Unix definition as the default.
+//  Override in systype.h.
+
 #ifndef EOL
 #define EOL	'\n'
 #endif
@@ -295,11 +253,11 @@ typedef long IATYPE;
 
 #define EXT '.'
 #define	BINEXT ".out"
-#define COMPEXT ".spt"
+#define COMPEXT ".stl"
 #define EFNEXT ".slf"
 #define LISTEXT ".lst"
 #define RUNEXT ".spx"
-#define SPITFILEPATH  "snolib"  // path for include and external files
+#define SPITFILEPATH  "SETL4PATH"  // path for include and external files
 
 /*
 /   The following manifest constant determines the maximum number of
@@ -315,23 +273,23 @@ typedef long IATYPE;
 /   The following manifest constants determines the size of the temporary
 /   SCBLKs defined by the interface.
 /
-/   TSCBLK_LENGTH	the maximum length of a string that can be stored
+/   tscblk_length	the maximum length of a string that can be stored
 /                   in structure 'tscblk'.  'tscblk' is defined in
 /                   file inter.s.
 /
-/   ID2BLK_LENGTH	the maximum length of a string that can be stored
+/   id2blk_length	the maximum length of a string that can be stored
 /                   in structure 'id2blk'.  'id2blk' is defined in
-/                   inter.c.  ID2BLK_LENGTH should be long enough
+/                   inter.c.  id2blk_length should be long enough
 /                   to hold the computer name type string (htype)
 /                   plus the date/time and a few blanks (typically
 /                   20 characters).  It should also be a multiple of
 /                   the word size.
 /
 */
-#ifndef TSCBLK_LENGTH
-#define TSCBLK_LENGTH	512
+#ifndef tscblk_length
+#define tscblk_length	512
 #endif
-#define ID2BLK_LENGTH	52
+#define id2blk_length	52
 
 /*
 /   The following manifest constants determine the default environment

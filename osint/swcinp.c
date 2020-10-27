@@ -1,26 +1,9 @@
 /*
 Copyright 1987-2012 Robert B. K. Dewar and Mark Emmer.
-Copyright 2012-2013 David Shields
-
-This file is part of Macro SPITBOL.
-
-    Macro SPITBOL is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 2 of the License, or
-    (at your option) any later version.
-
-    Macro SPITBOL is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Macro SPITBOL.  If not, see <http://www.gnu.org/licenses/>.
+Copyright 2012-2017 David Shields
 */
 
 /*
-/	File:  SWCINP.C		Version:  01.16
-/	---------------------------------------
 /
 /	Contents:	Function swcinp
 /
@@ -226,7 +209,7 @@ char	**fileptr;
                 write( STDERRFD, "Can't open ", 11 );
                 write( STDERRFD, cp, length(cp) );
                 wrterr( "" );
-                __exit(1);
+                exit(1);
             }
         }
     }
@@ -240,7 +223,7 @@ char	**fileptr;
         if (!executing && filecnt)
         {
             wrterr( "No END statement found in source file(s)." );   // V1.16
-            __exit(1);
+            exit(1);
         }
         close(0);
         clrbuf();

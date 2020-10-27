@@ -1,23 +1,53 @@
 /*
 Copyright 1987-2012 Robert B. K. Dewar and Mark Emmer.
-Copyright 2012-2013 David Shields
-
-This file is part of Macro SPITBOL.
-
-    Macro SPITBOL is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 2 of the License, or
-    (at your option) any later version.
-
-    Macro SPITBOL is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Macro SPITBOL.  If not, see <http://www.gnu.org/licenses/>.
+Copyright 2012-2017 David Shields
 */
 
+
+/*
+/   arg2scb( req, argc, argv, scptr, maxs )
+/
+/   arg2scb() makes a copy of the req-th argument in the argv array.
+/   The copy is appended to the string in the SCBLK provided.
+/
+/   Parameters:
+/	req	number of argument to copy
+/	argc	number of arguments
+/	argv	pointer to array of pointers to strings (arguments)
+/	scptr	pointer to SCBLK to receive copy of argument
+/	maxs	maximum number of characters to append.
+/   Returns:
+/	Length of argument copied or -1 if req is out of range.
+/   Side Effects:
+/	Modifies contents of passed SCBLK (scptr).
+/	SCBLK length field is incremented.
+*/
+
+#include "port.h"
+
+static int 
+arg2scb( req, argc, argv, scptr, maxs )
+
+int	req;
+int	argc;
+char	*argv[];
+struct	scblk	*scptr;
+int	maxs;
+
+{
+    register word	i;
+    register char	*argcp, *scbcp;
+
+    if ( req < 0  ||  req >= argc )
+        return	-1;
+
+    argcp	= argv[req];
+    scbcp	= scptr->str + scptr->len;
+    for( i = 0 ; i < maxs  &&  ((*scbcp++ = *argcp++) != 0) ; i++ )
+        ;
+    scptr->len += i;
+    return i;
+}
 
 /*
 /	zyshs - host specific functions
@@ -67,8 +97,6 @@ This file is part of Macro SPITBOL.
 /	    8 - return copy of result in XR
 */
 
-#include "port.h"
-
 /*
  *  checkstr - check if scblk is a valid string.  Returns 1 if so, else 0.
  */
@@ -77,7 +105,7 @@ checkstr(scp)
 struct scblk *scp;
 {
     return scp != (struct scblk *)0L &&
-           scp->typ == TYPE_SCL && scp->len < TSCBLK_LENGTH;
+           scp->typ == TYPE_SCL && scp->len < tscblk_length;
 }
 
 /*  check2str - check first two argument strings in XL, XR.
@@ -164,12 +192,12 @@ restore2str()
 int
 getint(icp,pword)
 struct icblk *icp;
-IATYPE *pword;
+long *pword;
 {
     register char *p, c;
     struct scblk *scp;
     word i;
-    IATYPE result;
+    long result;
     int sign;
 
     sign = 1;
@@ -185,9 +213,9 @@ IATYPE *pword;
         } val;
         val.rcvals[0] = ((struct rcblk *)icp)->rcvals[0];
         val.rcvals[1] = ((struct rcblk *)icp)->rcvals[1];
-        result = (IATYPE)val.rcval;
+        result = (long)val.rcval;
 #else
-        result = (IATYPE)(((struct rcblk *)icp)->rcval);
+        result = (long)(((struct rcblk *)icp)->rcval);
 #endif
     }
 #endif
@@ -197,7 +225,7 @@ IATYPE *pword;
             return 0;
         i = scp->len;
         p = scp->str;
-        result = (IATYPE)0;
+        result = (long)0;
         while (i && *p == ' ') {		// remove leading blanks
             p++;
             i--;
@@ -219,12 +247,10 @@ IATYPE *pword;
     return 1;
 }
 
-
-
-zyshs()
+int zyshs()
 {
     word	retval;
-    IATYPE	val;
+    long	val;
     register struct icblk *icp = WA (struct icblk *);
     register struct scblk *scp;
 
@@ -234,10 +260,10 @@ zyshs()
     scp = WA (struct scblk *);
     if (scp->typ == TYPE_SCL && !scp->len)
     {
-        gethost( pTSCBLK, TSCBLK_LENGTH );
-        if ( pTSCBLK->len == 0 )
+        gethost( ptscblk, tscblk_length );
+        if ( ptscblk->len == 0 )
             return EXIT_4;
-        SET_XL( pTSCBLK );
+        SET_XL( ptscblk );
         return EXIT_3;
     }
 
@@ -252,29 +278,29 @@ zyshs()
         case -1:
             icp = XL( struct icblk * );
             if ( getint(icp,&val) ) {
-                pTICBLK->typ = TYPE_ICL;
-                SET_XR( pTICBLK );
+                pticblk->typ = TYPE_ICL;
+                SET_XR( pticblk );
                 switch ( (int)val ) {
                 case 0:
-                    pTICBLK->val = memincb;
+                    pticblk->val = memincb;
                     return EXIT_8;
                 case 1:
-                    pTICBLK->val = databts;
+                    pticblk->val = databts;
                     return EXIT_8;
                 case 2:
-                    pTICBLK->val = (IATYPE)basemem;
+                    pticblk->val = (long)basemem;
                     return EXIT_8;
                 case 3:
-                    pTICBLK->val = (IATYPE)topmem;
+                    pticblk->val = (long)topmem;
                     return EXIT_8;
                 case 4:
-                    pTICBLK->val = stacksiz - 400;	// safety margin
+                    pticblk->val = stacksiz - 400;	// safety margin
                     return EXIT_8;
                 case 5:							// stack in use
-                    pTICBLK->val = stacksiz - (XS(IATYPE) - (IATYPE)lowsp);
+                    pticblk->val = stacksiz - (XS(long) - (long)lowsp);
                     return EXIT_8;
                 case 6:
-                    pTICBLK->val = sizeof(IATYPE);
+                    pticblk->val = sizeof(long);
                     return EXIT_8;
                 default:
                     return EXIT_1;
@@ -288,19 +314,19 @@ zyshs()
             */
         case 0:
             if ( uarg ) {
-                cpys2sc( uarg, pTSCBLK, TSCBLK_LENGTH );
-                SET_XL( pTSCBLK );
+                cpys2sc( uarg, ptscblk, tscblk_length );
+                SET_XL( ptscblk );
                 return EXIT_3;
             }
             else if ((val = cmdcnt) != 0) {
-                pTSCBLK->len = 0;
-                while (pTSCBLK->len < TSCBLK_LENGTH - 2 &&
+                ptscblk->len = 0;
+                while (ptscblk->len < tscblk_length - 2 &&
                         arg2scb( (int) val++, gblargc, gblargv,
-                                 pTSCBLK, TSCBLK_LENGTH - pTSCBLK->len ) > 0)
-                    pTSCBLK->str[pTSCBLK->len++] = ' ';
-                if (pTSCBLK->len)
-                    --pTSCBLK->len;
-                SET_XL( pTSCBLK );
+                                 ptscblk, tscblk_length - ptscblk->len ) > 0)
+                    ptscblk->str[ptscblk->len++] = ' ';
+                if (ptscblk->len)
+                    --ptscblk->len;
+                SET_XL( ptscblk );
                 return EXIT_3;
             }
             else
@@ -315,14 +341,14 @@ zyshs()
                 return EXIT_1;
             save2str(&cmd,&path);
             save0();		// made sure fd 0 OK
-            pTICBLK->val = dosys( cmd, path );
+            pticblk->val = dosys( cmd, path );
 
-            pTICBLK->typ = TYPE_ICL;
+            pticblk->typ = TYPE_ICL;
             restore2str();
             restore0();
-            if (pTICBLK->val < 0)
+            if (pticblk->val < 0)
                 return EXIT_6;
-            SET_XR( pTICBLK );
+            SET_XR( pticblk );
             return EXIT_8;
         }
 
@@ -332,13 +358,13 @@ zyshs()
         case 2:
             icp = XL( struct icblk * );
             if ( getint(icp,&val) ) {
-                pTSCBLK->len = 0;
-                retval = arg2scb( (int) val, gblargc, gblargv, pTSCBLK, TSCBLK_LENGTH );
+                ptscblk->len = 0;
+                retval = arg2scb( (int) val, gblargc, gblargv, ptscblk, tscblk_length );
                 if ( retval < 0 )
                     return EXIT_6;
                 if ( retval == 0 )
                     return EXIT_1;
-                SET_XL( pTSCBLK );
+                SET_XL( ptscblk );
                 return EXIT_3;
             }
             else
@@ -349,9 +375,9 @@ zyshs()
             */
         case 3:
             if ( cmdcnt ) {
-                pTICBLK->typ = TYPE_ICL;
-                pTICBLK->val = cmdcnt;
-                SET_XR( pTICBLK );
+                pticblk->typ = TYPE_ICL;
+                pticblk->val = cmdcnt;
+                SET_XR( pticblk );
                 return EXIT_8;
             }
             else
@@ -366,9 +392,9 @@ zyshs()
             if ( scp->typ == TYPE_SCL ) {
                 if ( scp->len == 0 )
                     return EXIT_1;
-                if ( rdenv( scp, pTSCBLK ) < 0 )
+                if ( rdenv( scp, ptscblk ) < 0 )
                     return EXIT_6;
-                SET_XL( pTSCBLK );
+                SET_XL( ptscblk );
                 return EXIT_3;
             }
             else

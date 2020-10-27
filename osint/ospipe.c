@@ -1,21 +1,6 @@
 /*
 Copyright 1987-2012 Robert B. K. Dewar and Mark Emmer.
-Copyright 2012-2013 David Shields
-
-This file is part of Macro SPITBOL.
-
-    Macro SPITBOL is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 2 of the License, or
-    (at your option) any later version.
-
-    Macro SPITBOL is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Macro SPITBOL.  If not, see <http://www.gnu.org/licenses/>.
+Copyright 2012-2017 David Shields
 */
 
 
@@ -107,7 +92,7 @@ struct	ioblk	*ioptr;
 
         if (doshell(ioptr) == -1)
             return -1;
-        __exit(1);			// Should never get here!
+        exit(1);			// Should never get here!
 
     default:
         /*
@@ -143,10 +128,10 @@ struct	ioblk	*ioptr;
     */
     scptr = ((struct scblk *) (ioptr->fnm));	// point to cmd scblk
     if (ioptr->flg2 & IO_ENV) {
-        if (optfile(scptr, pTSCBLK))
+        if (optfile(scptr, ptscblk))
             return -1;
-        scptr = pTSCBLK;
-        pTSCBLK->len = lenfnm(scptr);	// remove any options
+        scptr = ptscblk;
+        ptscblk->len = lenfnm(scptr);	// remove any options
     }
     len   = lenfnm( scptr ) - 2;        // length of cmd without ! & delimiter
     if (len >= CMDBUFLEN)
@@ -156,7 +141,7 @@ struct	ioblk	*ioptr;
         len--;                              //   zap 2nd delimiter
     cmdbuf[len] = '\0';                     // Nul terminate cmd
     shellpath = getshell();         // get shell's path
-    execl( shellpath, pathlast( shellpath ), "-c", cmdbuf, (char *)NULL );
+    execl( shellpath, pathlast( shellpath ), "-c", cmdbuf, (char *)0 );
     return -1;					// should not get here
 }
 
