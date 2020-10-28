@@ -1,8 +1,7 @@
 # copyright 1987-2012 robert b. k. dewar and mark emmer.
 
 # copyright 2012-2015 david shields
-	.code		32
-	.section	.text
+	.data		
 	.syntax		unified
 
 #	results are usually returned in r0; real results in r0:r1

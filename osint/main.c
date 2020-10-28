@@ -167,15 +167,11 @@ char	*argv[];
     */
     SET_CP( 0 );
     SET_IA( 0 );
-/* For x32-x86, we pass value of largest integer in WA on startup. It's not possible to set this up
+/* For x32-x86, we pass value of largest integer in WB on startup. It's not possible to set this up
    at compile time. 
  */
     SET_WA( 0 );
-#ifdef m32
-    long mxint = INT32_MAX;
-#else
-    long mxint = INT64_MAX;
-#endif
+    int mxint = 0x7FFFFFFFL;
 //    reg_wb = mxint;
     SET_WB( mxint );
     SET_WC( 0 );

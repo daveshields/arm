@@ -107,11 +107,11 @@ Copyright 2012-2017 David Shields
 
 #define GCCx86 (GCCi32 | GCCi64)
 
-//	minimal datatypes in C. word is long.
+//	minimal datatypes in C. word is int.
 //	integer accumulator is long. real accumulator is double
 
-typedef long word;		// minimal word as signed
-typedef unsigned long uword;	// minimal word as unsigned value
+typedef int word;		// minimal word as signed
+typedef unsigned int uword;	// minimal word as unsigned value
 
 
 //   Define the default end of line characters.  Use Unix definition as the default.
