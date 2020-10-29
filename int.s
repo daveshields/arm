@@ -20,245 +20,8 @@
 
 	.include "int.h"
 
-	.data
-	.section	data
-
-
-	.global	reg_block
-	.global	reg_w0
-	.global	reg_wa
-	.global	reg_wb
-	.global	reg_ia
-	.global	reg_wc
-	.global	reg_xr
-	.global	reg_xl
-	.global	reg_cp
-	.global	reg_ra
-	.global	reg_pc
-	.global	reg_xs
-	.global	reg_size
-
-	.global	reg_rp
-
-reg_block_:	.word	reg_block
-reg_wo_:	.word	reg_w0
-reg_wa_:	.word	reg_wa
-reg_wb_:	.word	reg_wb
-#reg_wc_:	.word	reg_ia
-reg_wc_:	.word	reg_wc
-reg_xr_:	.word	reg_xr
-reg_xl_:	.word	reg_xl
-reg_cp_:	.word	reg_cp
-reg_ra_:	.word	reg_ra
-reg_pc_:	.word	reg_pc
-reg_xs_:	.word	reg_xs
-
-reg_size_:	.word	reg_size
-
-reg_rp_:	.word	reg_rp
-
-	.global	save_cp
-	.global	save_xl
-	.global	save_xr
-	.global	save_xs
-	.global	save_wa
-	.global	save_wb
-	.global	save_wc
-	.global	save_w0
-
-save_cp_:	.word	save_cp
-save_xl_:	.word	save_xl
-save_xr_:	.word	save_xr
-save_xs_:	.word	save_xs
-save_wa_:	.word	save_wa
-save_wb_:	.word	save_wb
-save_wc_:	.word	save_wc
-save_w0_:	.word	save_w0
-
-
-#	address of global variables, where suffix '_' gives address of a variable
-
-calltab_:	.word	calltab
-
-stacksiz_:	.word	stacksiz
-lowspmin_:	.word	lowspmin
-stbas_:		.word	stbas
-statb_:		.word	statb
-stage_:		.word	stage
-gbcnt_:		.word	gbcnt
-lmodstk_:	.word	lmodstk
-startbrk_:	.word	startbrk
-outptr_:	.word	outptr
-swcoup_:	.word	swcoup
-timsx_:		.word	timsx
-
-#
-# words saved during exit(-3)
-# 
-	.align 2
-reg_block_:	.word	reg_block
-reg_block:
-reg_ia: .word	0			@ register ia (ia)
-reg_w0:	.word	0			@ register w0 (w0)
-reg_wa:	.word	0			@ register wa (wa)
-reg_wb:	.word	0			@ register wb (wb)
-reg_wc:	.word	0			@ register wc (wc)
-reg_xl:	.word	0			@ register xl (xl)
-reg_xr:	.word	0			@ register xr (xr)
-reg_cp:	.word	0			@ register cp
-reg_ra:	.single	0.0			@ register ra
-
-# these locations save information needed to return after calling osint
-# and after a restart from exit()
-
-#reg_pc: .word	0		    	@ return pc from caller
-reg_xs:	.word	0			@ minimal stack pointer
-
-	.set	r_size,10*cfp_b
-reg_size:	.word   r_size		@ used only in sysxi in osint
-
-# reg_rp is used to pass pointer to real operand for real arithmetic
-# this is not needed for arm version, since real operands are single word.
-
-reg_rp:	.word	0
-
-# reg_fl is used to communicate condition codes between minimal and c code.
-
-	.global	reg_fl
-reg_fl_:	.word	reg_fl
-reg_fl:	.word	0			@ condition code register for numeric operations
-	
-
-	.align	2
-#  constants
-
-	.global	ten
-ten_:	.word	ten
-ten:	.word	10		    	@ constant 10
-
-inf_:	.word	inf
-	.global	inf
-inf:	.word	0
-	.word	    0x7ff00000	    	@ double precision infinity
-
-sav_block_:	.word	sav_block
-	.global	sav_block
-
-#sav_block: times r_size db 0		@ save minimal registers during push/pop reg
-
-sav_block:
-	.rept	r_size	
-	.word	0
-	.endr
-	.word	0
-
-	.align	2
-	.global	ppoff
-ppoff_:	.word	ppoff
-ppoff:	.word	0			@ offset for ppm exits
-
-	.global	compsp
-compsp_: .word	compsp
-compsp: .word	0			@ compiler's stack pointer
-	.global	sav_compsp
-sav_compsp_:	.word	sav_compsp
-sav_compsp:
-	.word	0			@ save compsp here
-	.global	osisp
-osisp_:	.word	osisp
-osisp:	.word	0			@ osint's stack pointer
-
-save_cp:	.word	0		@ saved cp value
-#save_ia:	.word	0		@ saved ia value
-save_xl:	.word	0		@ saved xl value
-save_xr:	.word	0		@ saved xr value
-save_xs:	.word	0		@ saved sp value
-save_wa:	.word	0		@ saved wa value
-save_wb:	.word	0		@ saved wb value
-save_wc:	.word	0		@ saved wc value
-save_w0:	.word	0		@ saved w0 value
-
-	.global	minimal_id
-minimal_id_:	word	minimal_id
-minimal_id:	.word	0		@ id for call to minimal from c. see proc minimal below.
-
-#
-	.set	setreal,0
-
-#	setup a number of internal addresses in the compiler that cannot
-#	be directly accessed from within c because of naming difficulties.
-
-	.global	id1
-id1_:	.word	id1
-id1:	.word   0
-	.if	setreal
-	.word	     2
-       	.word	    1
-	.word  "1x\x00\x00\x00"
-	.endif
-
-	.global	id1blk
-id1blk_:	.word	id1blk
-id1blk:	.word	 152
-	.word	  0
-	.rept	152
-	.byte	0
-	.endr
-
-
-	.global	id2blk
-id2blk_:	.word	id2blk
-id2blk:	.word	 152
-	.word	  0
-	.rept	152
-	.byte	0
-	.endr
-
-	.global	ticblk
-ticblk_:	.word	ticblk
-ticblk:	.word	 0
-      	.word	0
-
-	.global	tscblk
-tscblk_:	.word	tscblk
-tscblk:	 .word	  512
-      	.word	0
-	.rept	512
-	.byte	0
-	.endr
-
-#	standard input buffer block.
-
-	.global	inpbuf
-inpbuf_:	.word	inpbuf
-inpbuf:	.word	0			@ type word
-	.word	0			@ block length
-	.word	1024			@ buffer size
-      	.word	0			@ remaining chars to read
-      	.word	0			@ offset to next character to read
-      	.word	0			@ file position of buffer
-      	.word	0			@ physical position in file
-	.rept	1024			@ buffer
-	.byte	0
-	.endr
-
-	.global	ttybuf
-ttybuf_:	.word	ttybuf
-ttybuf:	.word	  0	@ type word
-	.word	  0			@ block length
-	.word	  260			@ buffer size	(260 ok in ms-dos with cinread())
-	.word	  0			@ remaining chars to read
-	.word	  0			@ offset to next char to read
-	.word	  0			@ file position of buffer
-	.word	  0			@ physical position in file
-	.rept	260			@ buffer
-	.byte	0
-	.endr
-
-
-
 	.code	32
-	.section	.text
+	.text
 	.syntax		unified
 
 #	cfp_b is bytes per word, cfp_c is characters per word
@@ -394,13 +157,24 @@ save_regs:
 #	str	wc,save_ia
 	ldr	w1,=save_xl_
 	str	xl,[w1]
+
 	ldr	w1,=save_xr_
 	str	xr,[w1]
-	str	xs,save_xs
-	str	wa,save_wa
-	str	wb,save_wb
-	str	wc,save_wc
-	str	w0,save_w0
+
+	ldr	w1,=save_xs_
+	str	xs,[w1]
+
+	ldr	w1,=save_wa_
+	str	wa,[w1]
+
+	ldr	w1,=save_wb_
+	str	wb,[w1]
+
+	ldr	w1,=save_wc_
+	str	wc,[w1]
+
+	ldr	w1,=save_w0_
+	str	w0,[w1]
 	mov	PC,LR
 
 	.global	restore_regs
@@ -459,13 +233,15 @@ startup:
 	pop	{w0}			@ discard return
 	b	stackinit		@ initialize minimal stack
 	ldr	w0,=compsp		@ get minimal's stack pointer
-	str 	w0,reg_wa		@ startup stack pointer
+	ldr	w1,=reg_wa_
+	str 	w0,[w1]			@ startup stack pointer
 
 	ldr	w2,=ppoff
 	mov     w0,w2			@ save for use later
 	ldr	xs,=osisp		@ switch to new c stack
-	ldr	w1,calltab_
-	str	w1,minimal_id
+	mov	w1,#calltab_start
+	ldr	w2,=minimal_id_
+	str	w1,[w2]
 	bl	minimal			@ load regs, switch stack, start compiler
 
 #	stackinit  -- initialize lowspmin from sp.
@@ -497,13 +273,19 @@ startup:
 	.global	stackinit
 stackinit:
 	mov	w0,xs
-	ldr	w1,stacksiz_ 	@ save as minimal's stack pointer
-	ldr	w1,[w1]
-	sub	w0,w0,w1	@ end of minimal stack is where c stack will start
-	ldr	w0,osisp	@ save new c stack pointer
-	add	w0,#cfp_b*100	@ 100 words smaller for chk
+	ldr	w2,compsp_	@ save as minimal's stack pointer
+	str	w0,[w2]
+
+	ldr	w2,stacksiz_
+	ldr	w2,[w2]
+	sub	w0,w0,w2	@ end of minimal stack is where c stack will start
+
+	ldr	w2,osisp_
+	str	w0,[w2]		@ save new c stack pointer
+	
+	add	w0,w0,#cfp_b*100	@ 100 words smaller for chk
 	ldr	w1,lowspmin_
-	str	w2,[w1]
+	str	w0,[w1]
 	mov	PC,LR
 
 #	mimimal -- call minimal function from c
@@ -527,30 +309,44 @@ minimal:
 	ldr	xr,=reg_xr
 	ldr	xl,=reg_xl
 
-	str	xs,osisp	@ save osint stack pointer
-	ldr	w1,compsp
+	ldr	w1,=osisp_
+	str	xs,[w1]		@ save osint stack pointer
+
+	ldr	w1,=compsp
 	tst	w1,w1
 	movne	xs,w2		@ switch to compiler stack
-	ldr	w0,minimal_id	@ ordinal in calltab
+	ldr	w0,=minimal_id	@ ordinal in calltab
 #	for 64: have  
 #		call  calltab+w0*cfp_b    @ off to the minimal code
-	ldr	w1,calltab_	@ origin of calltab
+	ldr	w1,=calltab_	@ origin of calltab
 	add	w1,w1,w0,lsl #2
 	blx	w1
 
 	ldr	xs,=osisp	@ switch to osint stack
 
-	str	wa,reg_wa	@ save registers
-	str	wb,reg_wb
-	str	wc,reg_wc
-	str	xr,reg_xr
-	str	xl,reg_xl
+	ldr	w1,=reg_wa_
+	str	wa,[w1]		@ save registers
+
+	ldr	w1,=reg_wb_
+	str	wb,[w1]
+
+	ldr	w1,=reg_wc_
+	str	wc,[w1]
+
+	ldr	w1,=reg_xr_
+	str	xr,[w1]
+
+	ldr	w1,=reg_xl_
+	str	xl,[w1]
+
 	mov	PC,LR		@ return to minimal code
 
 	.global	cvd_
 	.type	cvd_,%function
 cvd_:
-	str	wc,reg_ia
+
+	ldr	w1,=reg_ia_
+	str	wc,[w1]
 	bl	cvd__
 	ldr	wc,=reg_ia
 	ldr	wa,=reg_wa
@@ -565,9 +361,15 @@ dvi_:
 	tst	w0,w0
 	cmp	w0,w0			@ compare to see if zero (also clear v flag)
 	beq	1f
-	str	w0,reg_w0		@ store argument
-	str	wc,reg_ia		@ make wc (ia) accessible to osint procedure
+
+	ldr	w1,=reg_w0_
+	str	w0,[w1]			@ store argument
+
+	ldr	w1,=reg_ia_
+	str	wc,[w1]	
+
 	bl	dvi__
+
 	ldr	wc,=reg_wc
 	b	2f
 1:					@ here if divide by zero, force overflow
@@ -584,10 +386,17 @@ rmi_:
 	tst	w0,w0
 	cmp	w0,w0			@ compare to see if zero (also clear v flag)
 	beq	1f
-	str	w0,reg_w0		@ store argument
-	str	wc,reg_ia		@ make wc (ia) accessible to osint procedure
+
+	ldr	w1,=reg_w0_
+	str	w0,[w1]			@ store argument
+
+	
+	ldr	w1,=reg_ia_
+	str	wc,[w1]			@ make wc (ia) accessible to osint procedure
 	bl	rmi__
-	ldr	wc,=reg_wc
+
+	ldr	w1,=reg_wc_
+	ldr	wc,[w1]
 	b	2f
 1:					@ here if divide by zero, force overflow
 	mov	w1,#1
@@ -656,11 +465,20 @@ syscall_init:
 
 #	save registers in .global variables
 
-	str	wa,reg_wa		 @ save registers
-	str	wb,reg_wb
-	str	wc,reg_wc		 @ (also _reg_ia)
-	str	xl,reg_xl
-	str	xr,reg_xr
+	ldr	w1,=reg_wa_
+	str	wa,[w1]			 @ save registers
+
+	ldr	w1,=reg_wb_
+	str	wb,[w1]
+
+	ldr	w1,=reg_wc_
+	str	wc,[w1]			 @ (also _reg_ia)
+
+	ldr	w1,=reg_xl_
+	str	xl,[w1]
+
+	ldr	w1,=reg_xr_
+	str	xr,[w1]
 	mov	PC,LR
 
 syscall_exit:
@@ -711,7 +529,8 @@ sysbs:
 	.global sysbx
 #	.extern	zysbx
 sysbx:	
-	str	xs,reg_xs
+	ldr	w1,=reg_xs_
+	str	xs,[w1]
 	syscall	zysbx,2
 
 #	 .global syscr
@@ -757,7 +576,8 @@ sysep:	syscall	zysep,12
 	.global sysex
 #	.extern	zysex
 sysex:	
-	str	xs,reg_xs
+	ldr	w1,=reg_xs_
+	str	xs,[w1]
 
 	syscall	zysex,13
 
@@ -778,7 +598,8 @@ sysgc:	syscall	zysgc,15
 	.global syshs
 #	.extern	zyshs
 syshs:	
-	str	xs,reg_xs
+	ldr	w1,=reg_xs_
+	str	xs,[w1]
 	syscall	zyshs,16
 
 	.global sysid
@@ -864,7 +685,8 @@ sysul:	syscall	zysul,37
 	.global sysxi
 #	.extern	zysxi
 sysxi:	
-	str	xs,reg_xs
+	ldr	w1,=reg_xs_
+	str	xs,[w1]
 	syscall	zysxi,38
 
 #	x64 hardware divide, expressed in form of minimal register mappings, requires dividend be
@@ -965,7 +787,7 @@ sysxi:
 	.global	get_fp			@ get frame pointer
 
 get_fp:
-	 ldr	 w0,reg_xs		 @ minimal's xs
+	 ldr	 w0,=reg_xs		 @ minimal's xs
 #	 add	 w0,#4			@ pop return from call to sysbx or sysxi
 	 mov	PC,lr			@ done
 
@@ -983,7 +805,8 @@ restart:
 #	pop	w0			@ discard dummy
 #	pop	w0			@ get lowest legal stack value
 
-	ldr	w1,=stacksiz
+	ldr	w1,stackskz_
+	ldr	w1,[w1]
 	add	w0,w1
 	mov	xs,w0			@ switch to this stack
 	bl	stackinit		@ initialize minimal stack
@@ -1128,3 +951,60 @@ re4:	ldr	w1,stbas_
 #	popf
 #	mov	PC,lr
 #%endif
+save_cp_:	.word	save_cp
+save_xl_:	.word	save_xl
+save_xr_:	.word	save_xr
+save_xs_:	.word	save_xs
+save_wa_:	.word	save_wa
+save_wb_:	.word	save_wb
+save_wc_:	.word	save_wc
+save_w0_:	.word	save_w0
+
+
+#	address of global variables, where suffix '_' gives address of a variable
+
+calltab_:	.word	calltab
+
+stacksiz_:	.word	stacksiz
+lowspmin_:	.word	lowspmin
+stbas_:		.word	stbas
+statb_:		.word	statb
+stage_:		.word	stage
+gbcnt_:		.word	gbcnt
+lmodstk_:	.word	lmodstk
+startbrk_:	.word	startbrk
+outptr_:	.word	outptr
+swcoup_:	.word	swcoup
+timsx_:		.word	timsx
+
+reg_block_:	.word	reg_block
+reg_w0_:	.word	reg_w0
+reg_wa_:	.word	reg_wa
+reg_wb_:	.word	reg_wb
+reg_ia_:	.word	reg_ia
+reg_wc_:	.word	reg_wc
+reg_xr_:	.word	reg_xr
+reg_xl_:	.word	reg_xl
+reg_cp_:	.word	reg_cp
+reg_ra_:	.word	reg_ra
+reg_pc_:	.word	reg_pc
+reg_xs_:	.word	reg_xs
+
+reg_size_:	.word	reg_size
+
+reg_rp_:	.word	reg_rp
+
+ten_:	.word	ten
+inf_:	.word	inf
+reg_fl_:	.word	reg_fl
+#sav_block_:	.word	sav_block
+id1_:	.word	id1
+id2blk_:	.word	id2blk
+id1blk_:	.word	id1blk
+ticblk_:	.word	ticblk
+tscblk_:	.word	tscblk
+inpbuf_:	.word	inpbuf
+ttybuf_:	.word	ttybuf
+minimal_id_:	.word	minimal_id
+osisp_:		.word	osisp
+compsp_:	.word	compsp
