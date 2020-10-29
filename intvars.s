@@ -97,7 +97,7 @@ ten:	.word	10		    	@ constant 10
 inf:	.word	0
 	.word	    0x7ff00000	    	@ double precision infinity
 
-	.global	lowspin
+	.global	lowspmin
 lowspmin:	.word	0
 
 #sav_block: times r_size db 0		@ save minimal registers during push/pop reg
