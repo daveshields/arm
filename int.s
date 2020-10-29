@@ -499,6 +499,21 @@ syscall_exit:
 
 	mov	PC,LR			@ return to syscall caller
 
+	.global	chk_
+chk_:
+
+*	check stack register to see if room for another 100 words.
+*	return zero if ok, or one if not.
+
+	ldr	w1,lowspmin_
+	ldr	w1,[w1]
+	cmp	xs,w1
+	movhi	w0,#0			@ if room
+	movlo	w0,#1
+	moveq	w0,#1
+	mov	PC,LR
+
+
 	.macro	syscall	proc,id
 
 # CHECK THESE CLOSELY

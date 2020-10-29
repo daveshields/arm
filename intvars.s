@@ -138,9 +138,6 @@ save_w0:	.word	0		@ saved w0 value
 	.global	minimal_id
 minimal_id:	.word	0		@ id for call to minimal from c. see proc minimal below.
 
-	.global	lowspmin
-lowspmin:	.word	0
-
 	.set	setreal,0
 
 #	setup a number of internal addresses in the compiler that cannot

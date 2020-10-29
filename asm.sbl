@@ -3340,9 +3340,19 @@ g_mcb
 
 g_chk
 
-	fetch(w0,minarg(3,'lowspmin'))
-	genop('cmp',xs,w0)
-	jump('lo',minarg(6,'sec06'))			:(opdone)
+*	call interface procedure. It returns 0 if not stack space remains, or
+*	one if no space remains.
+
+	genop('chk_')	
+	genop('tst',w0,w0)
+	jump('ne',minarg(6,'sec06'))			:(opdone)
+
+*	old code (it wrongly accesses lowspmin from sbl.s)
+
+*	jump('lo',minard(
+*	fetch(w0,minarg(3,'lowspmin'))
+*	genop('cmp',xs,w0)
+*	jump('ne',minarg(6,'sec06'))			:(opdone)
 
 *	#### 11- Data Generation Instructions
 
