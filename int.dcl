@@ -209,6 +209,12 @@ calltab:
 	.endm
 
 
+	.macro	chk_
+	bl	chk__
+	mov	PC,LR
+	.endm
+	
+
 #	.macro	adi_	arg
 #	add	ia,\arg
 #	seto	byte [reg_fl]
