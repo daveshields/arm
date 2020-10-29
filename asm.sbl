@@ -1815,9 +1815,6 @@ g_sec.3
 
 g_sec.4
 
-	genop('.global','lowspmin')
-	genopl('lowspmin','.word', 0)
-
 	genop('.global','esec03')
 	genopl('esec03')
 
