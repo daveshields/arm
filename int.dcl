@@ -139,7 +139,6 @@ calltab:
 	.global	statb
 	.global	polct
 	.global	typet
-	.global	lowspmin
 	.global	flprt
 	.global	flptr
 	.global	gtcef
