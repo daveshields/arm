@@ -8827,7 +8827,6 @@ relws  prc  e,0              entry point
 *      (xl)                  points to last word of data area
 
 start  prc  e,0              entry point
-       mov  mxint,wb
        mov  bitsm,wb
        zer  wb
 *z-

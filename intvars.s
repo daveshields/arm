@@ -51,6 +51,16 @@ dave:	.int	75
 	.global	save_wc
 	.global	save_w0
 
+	.global	prc_
+
+#	number of entries in prc_ list must be greater than value of prc.count 
+#	when running asm.sbl
+
+prc_:
+	.rept	50
+	.word	0
+	.endr
+
 #
 # words saved during exit(-3)
 # 

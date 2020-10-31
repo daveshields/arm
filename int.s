@@ -155,39 +155,45 @@
 save_regs:
 					@ save registers
 #	str	wc,save_ia
-	ldr	w1,=save_xl_
+	ldr	w1,save_xl_
 	str	xl,[w1]
 
-	ldr	w1,=save_xr_
+	ldr	w1,save_xr_
 	str	xr,[w1]
 
-	ldr	w1,=save_xs_
+	ldr	w1,save_xs_
 	str	xs,[w1]
 
-	ldr	w1,=save_wa_
+	ldr	w1,save_wa_
 	str	wa,[w1]
 
-	ldr	w1,=save_wb_
+	ldr	w1,save_wb_
 	str	wb,[w1]
 
-	ldr	w1,=save_wc_
+	ldr	w1,save_wc_
 	str	wc,[w1]
 
-	ldr	w1,=save_w0_
+	ldr	w1,save_w0_
 	str	w0,[w1]
 	mov	PC,LR
 
 	.global	restore_regs
 restore_regs:
 					@ restore regs, except for sp. that is caller's responsibility
-#	ldr	wc,=save_ia
-	ldr	xl,=save_xl
-	ldr	xr,=save_xr
-#	ldr	xs,=save_xs		@ caller restores sp
-	ldr	wa,=save_wa
-	ldr	wb,=save_wb
-	ldr	wc,=save_wc
-	ldr	w0,=save_w0
+#	ldr	wc,save_ia
+	ldr	xl,save_xl_
+	ldr	xl,[xl]
+	ldr	xr,save_xr_
+	ldr	xr,[xr]
+#	ldr	xs,save_xs		@ caller restores sp
+	ldr	wa,save_wa_
+	ldr	wa,[wa]
+	ldr	wb,save_wb_
+	ldr	wb,[wb]
+	ldr	wc,save_wc_
+	ldr	wc,[wc]
+	ldr	w0,save_w0_
+	ldr	w0,[w0]
 	mov	PC,LR
 # ;
 # ;	  startup( char *dummy1, char *dummy2) - startup compiler
@@ -231,16 +237,19 @@ restore_regs:
 
 startup:
 	pop	{w0}			@ discard return
-	b	stackinit		@ initialize minimal stack
-	ldr	w0,=compsp		@ get minimal's stack pointer
-	ldr	w1,=reg_wa_
+	bl	stackinit		@ initialize minimal stack
+	ldr	w0,compsp_		@ get minimal's stack pointer
+	ldr	w0,[w0]
+	ldr	w1,reg_wa_
 	str 	w0,[w1]			@ startup stack pointer
 
-	ldr	w2,=ppoff
+	ldr	w2,ppoff_
+	ldr	w2,[w2]
 	mov     w0,w2			@ save for use later
-	ldr	xs,=osisp		@ switch to new c stack
+	ldr	xs,osisp_		@ switch to new c stack
+	ldr	xs,[xs]
 	mov	w1,#calltab_start
-	ldr	w2,=minimal_id_
+	ldr	w2,minimal_id_
 	str	w1,[w2]
 	bl	minimal			@ load regs, switch stack, start compiler
 
@@ -272,6 +281,7 @@ startup:
 
 	.global	stackinit
 stackinit:
+	push	{LR}
 	mov	w0,xs
 	ldr	w2,compsp_	@ save as minimal's stack pointer
 	str	w0,[w2]
@@ -286,6 +296,7 @@ stackinit:
 	add	w0,w0,#cfp_b*100	@ 100 words smaller for chk
 	ldr	w1,lowspmin_
 	str	w0,[w1]
+	pop	{LR}
 	mov	PC,LR
 
 #	mimimal -- call minimal function from c
@@ -303,40 +314,58 @@ stackinit:
 #	the osint stack.
 
 minimal:
-	ldr	wa,=reg_wa	@ restore registers
-	ldr	wb,=reg_wb
-	ldr	wc,=reg_wc	@
-	ldr	xr,=reg_xr
-	ldr	xl,=reg_xl
+	ldr	wa,reg_wa_	@ restore registers
+	ldr	wa,[wa]
+	ldr	wb,reg_wb_
+	ldr	wb,[wb]
+	ldr	wc,reg_wc_	@
+	ldr	wc,[wc]
+	ldr	xr,reg_xr_
+	ldr	xr,[xr]
+	ldr	xl,reg_xl_
+	ldr	xl,[xl]
 
-	ldr	w1,=osisp_
+	ldr	w1,osisp_
+	ldr	w1,[w1]
 	str	xs,[w1]		@ save osint stack pointer
 
-	ldr	w1,=compsp
+	ldr	w1,compsp_
+	ldr	w1,[w1]
 	tst	w1,w1
 	movne	xs,w2		@ switch to compiler stack
-	ldr	w0,=minimal_id	@ ordinal in calltab
+
+#	load base register for pool references in minimal code
+	ldr	pr,pool0_
+
+#	branch to start entry point 'start' in the minimal code, as this is
+# 	the only use of calltab_ in all the current code
+	bl	start
+	mov	PC,LR		@ return to minimal code
+
+	ldr	w0,minimal_id_	@ ordinal in calltab
+	ldr	w0,[w0]
 #	for 64: have  
 #		call  calltab+w0*cfp_b    @ off to the minimal code
-	ldr	w1,=calltab_	@ origin of calltab
+	ldr	w1,calltab_	@ origin of calltab
 	add	w1,w1,w0,lsl #2
 	blx	w1
 
-	ldr	xs,=osisp	@ switch to osint stack
+	ldr	xs,osisp_	@ switch to osint stack
+	ldr	xs,[xs]
 
-	ldr	w1,=reg_wa_
+	ldr	w1,reg_wa_
 	str	wa,[w1]		@ save registers
 
-	ldr	w1,=reg_wb_
+	ldr	w1,reg_wb_
 	str	wb,[w1]
 
-	ldr	w1,=reg_wc_
+	ldr	w1,reg_wc_
 	str	wc,[w1]
 
-	ldr	w1,=reg_xr_
+	ldr	w1,reg_xr_
 	str	xr,[w1]
 
-	ldr	w1,=reg_xl_
+	ldr	w1,reg_xl_
 	str	xl,[w1]
 
 	mov	PC,LR		@ return to minimal code
@@ -345,11 +374,13 @@ minimal:
 	.type	cvd_,%function
 cvd_:
 
-	ldr	w1,=reg_ia_
+	ldr	w1,reg_ia_
 	str	wc,[w1]
 	bl	cvd__
-	ldr	wc,=reg_ia
-	ldr	wa,=reg_wa
+	ldr	w1,reg_ia_
+	ldr	wc,[w1]
+	ldr	wa,reg_wa_
+	ldr	wa,[wa]
 	mov	PC,LR		@ return to minimal code
 
 
@@ -362,15 +393,16 @@ dvi_:
 	cmp	w0,w0			@ compare to see if zero (also clear v flag)
 	beq	1f
 
-	ldr	w1,=reg_w0_
+	ldr	w1,reg_w0_
 	str	w0,[w1]			@ store argument
 
-	ldr	w1,=reg_ia_
+	ldr	w1,reg_ia_
 	str	wc,[w1]	
 
 	bl	dvi__
 
-	ldr	wc,=reg_wc
+	ldr	wc,reg_wc_
+	ldr	wc,[wc]
 	b	2f
 1:					@ here if divide by zero, force overflow
 	mov	w1,#1
@@ -387,15 +419,15 @@ rmi_:
 	cmp	w0,w0			@ compare to see if zero (also clear v flag)
 	beq	1f
 
-	ldr	w1,=reg_w0_
+	ldr	w1,reg_w0_
 	str	w0,[w1]			@ store argument
 
 	
-	ldr	w1,=reg_ia_
+	ldr	w1,reg_ia_
 	str	wc,[w1]			@ make wc (ia) accessible to osint procedure
 	bl	rmi__
 
-	ldr	w1,=reg_wc_
+	ldr	w1,reg_wc_
 	ldr	wc,[w1]
 	b	2f
 1:					@ here if divide by zero, force overflow
@@ -465,19 +497,19 @@ syscall_init:
 
 #	save registers in .global variables
 
-	ldr	w1,=reg_wa_
+	ldr	w1,reg_wa_
 	str	wa,[w1]			 @ save registers
 
-	ldr	w1,=reg_wb_
+	ldr	w1,reg_wb_
 	str	wb,[w1]
 
-	ldr	w1,=reg_wc_
+	ldr	w1,reg_wc_
 	str	wc,[w1]			 @ (also _reg_ia)
 
-	ldr	w1,=reg_xl_
+	ldr	w1,reg_xl_
 	str	xl,[w1]
 
-	ldr	w1,=reg_xr_
+	ldr	w1,reg_xr_
 	str	xr,[w1]
 	mov	PC,LR
 
@@ -485,15 +517,21 @@ syscall_exit:
 
 	mov	rc,w0			@ save return code from function
 
-	ldr	w1,=osisp
+	ldr	w1,osisp_
 	str	xs,[w1]		 	@ save osint's stack pointer
 
-	ldr	xs,=compsp
-	ldr	wa,=reg_wa		 @ restore registers
-	ldr	wb,=reg_wb
-	ldr	wc,=reg_wc
-	ldr	xr,=reg_xr
-	ldr	xl,=reg_xl
+	ldr	xs,compsp_
+	ldr	xs,[xs]
+	ldr	wa,reg_wa_		 @ restore registers
+	ldr	wa,[wa]
+	ldr	wb,reg_wb_
+	ldr	wb,[wb]
+	ldr	wc,reg_wc_
+	ldr	wc,[wc]
+	ldr	xr,reg_xr_
+	ldr	xr,[xr]
+	ldr	xl,reg_xl_
+	ldr	xl,[xl]
 #	ldr	w0,reg_pc_
 #	ldr	w0,[w0]
 
@@ -546,7 +584,7 @@ sysbs:
 	.global sysbx
 #	.extern	zysbx
 sysbx:	
-	ldr	w1,=reg_xs_
+	ldr	w1,reg_xs_
 	str	xs,[w1]
 	syscall	zysbx,2
 
@@ -593,7 +631,7 @@ sysep:	syscall	zysep,12
 	.global sysex
 #	.extern	zysex
 sysex:	
-	ldr	w1,=reg_xs_
+	ldr	w1,reg_xs_
 	str	xs,[w1]
 
 	syscall	zysex,13
@@ -615,7 +653,7 @@ sysgc:	syscall	zysgc,15
 	.global syshs
 #	.extern	zyshs
 syshs:	
-	ldr	w1,=reg_xs_
+	ldr	w1,reg_xs_
 	str	xs,[w1]
 	syscall	zyshs,16
 
@@ -702,7 +740,7 @@ sysul:	syscall	zysul,37
 	.global sysxi
 #	.extern	zysxi
 sysxi:	
-	ldr	w1,=reg_xs_
+	ldr	w1,reg_xs_
 	str	xs,[w1]
 	syscall	zysxi,38
 
@@ -804,7 +842,7 @@ sysxi:
 	.global	get_fp			@ get frame pointer
 
 get_fp:
-	 ldr	 w0,=reg_xs		 @ minimal's xs
+	 ldr	 w0,reg_xs_		 @ minimal's xs
 #	 add	 w0,#4			@ pop return from call to sysbx or sysxi
 	 mov	PC,lr			@ done
 
@@ -833,7 +871,8 @@ restart:
 	ldr	w0,tscblk_		@ load address of saved stack
 	add	w0,w0,#scstr
 
-	ldr	wb,=lmodstk		@ bottom of saved stack
+	ldr	wb,lmodstk_		@ bottom of saved stack
+	ldr	wb,[wb]
 	ldr	wa,stbas_		@ wa = stbas from exit() time
 	ldr	wa,[wa]
 	sub	wb,wb,w0		@ wb = size of saved stack
@@ -845,11 +884,13 @@ restart:
 	ldr	w2,stbas_	 	@ save initial sp
 	str	xs,[w2]
 #	 getoff	 w0,dffnc		 @ get address of ppm offset
-	ldr	w0,=ppoff	 	@ save for use later
+	ldr	w0,ppoff_	 	@ save for use later
+	ldr	w0,[w0]
 #
 #	restore stack from tscblk.
 #
-	ldr	xl,=lmodstk		@ -> bottom word of stack in tscblk
+	ldr	xl,lmodstk_		@ -> bottom word of stack in tscblk
+	ldr	xl,[xl]
 #?? fix below
 #	lea	xr,tscblk+scstr		@ -> top word of stack	(x64 version_
 	ldr	w1,tscblk_		@ address of  tscblk
@@ -876,11 +917,14 @@ restart:
 	beq	1b			@ loop back
 3:	
 	str	xs,compsp		@ save compiler's stack pointer
-	ldr	xs,=osisp		@ back to osint's stack pointer
+	ldr	xs,osisp_		@ back to osint's stack pointer
+	ldr	xs,[xs]
 	bl   	rereloc			@ relocate compiler pointers into stack
 	ldr	w1,statb_		@ start of static region to xr
 	ldr	w0,[w1]
-	str	w0,reg_xr
+	ldr	w2,reg_xr_
+	str	w0,[w2]
+	
 	mov	w1,#minimal_insta
 	b	minimal			@ initialize static region 
 					@ was a call, but there is nothing to return to.  This was probably for 
@@ -942,7 +986,7 @@ re4:	ldr	w1,stbas_
 #	code that would be executed if we returned to sysbx:
 #
 #	push	outptr			@ swcoup(outptr)
-	ldr	w1,=outptr_
+	ldr	w1,outptr_
 	ldr	w1,[w1]
 	push	{w1}
 	bl	swcoup
@@ -1025,3 +1069,6 @@ ttybuf_:	.word	ttybuf
 minimal_id_:	.word	minimal_id
 osisp_:		.word	osisp
 compsp_:	.word	compsp
+
+ppoff_:		.word	ppoff
+pool0_:		.word	pool0

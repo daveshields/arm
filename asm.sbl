@@ -1913,7 +1913,8 @@ g_end.4
 
 	s = sort(pooltable,2)
 	i = 0
-	outfile = 'pool0:'
+	genop('.global','pool0')
+	genopl('pool0')
 
 g_end.5
 	
