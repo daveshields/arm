@@ -281,7 +281,7 @@ startup:
 
 	.global	stackinit
 stackinit:
-	push	{LR}
+	push	{fp,LR}
 	mov	w0,xs
 	ldr	w2,compsp_	@ save as minimal's stack pointer
 	str	w0,[w2]
@@ -296,7 +296,7 @@ stackinit:
 	add	w0,w0,#cfp_b*100	@ 100 words smaller for chk
 	ldr	w1,lowspmin_
 	str	w0,[w1]
-	pop	{LR}
+	pop	{fp,LR}
 	mov	PC,LR
 
 #	mimimal -- call minimal function from c
@@ -314,6 +314,7 @@ stackinit:
 #	the osint stack.
 
 minimal:
+	push	{fp,LR}
 	ldr	wa,reg_wa_	@ restore registers
 	ldr	wa,[wa]
 	ldr	wb,reg_wb_
@@ -340,6 +341,7 @@ minimal:
 #	branch to start entry point 'start' in the minimal code, as this is
 # 	the only use of calltab_ in all the current code
 	bl	start
+	pop	{fp,LR}
 	mov	PC,LR		@ return to minimal code
 
 	ldr	w0,minimal_id_	@ ordinal in calltab
@@ -497,6 +499,7 @@ syscall_init:
 
 #	save registers in .global variables
 
+	push	{fp,LR}
 	ldr	w1,reg_wa_
 	str	wa,[w1]			 @ save registers
 
@@ -511,10 +514,12 @@ syscall_init:
 
 	ldr	w1,reg_xr_
 	str	xr,[w1]
+	pop	{fp,LR}
 	mov	PC,LR
 
 syscall_exit:
 
+	push	{fp,LR}
 	mov	rc,w0			@ save return code from function
 
 	ldr	w1,osisp_
@@ -535,6 +540,7 @@ syscall_exit:
 #	ldr	w0,reg_pc_
 #	ldr	w0,[w0]
 
+	pop	{fp,LR}
 	mov	PC,LR			@ return to syscall caller
 
 	.global	chk__
