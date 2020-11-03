@@ -1591,7 +1591,7 @@ g_prc.r
 
 *	save return address on stack
 
-	genop('pop','{LR}')				:(opdone)
+	genop('push','{LR}')				:(opdone)
 
 g_prc.n
 
@@ -1602,7 +1602,7 @@ g_prc.n
 	genop('mov',w0,LR)
 	genop('ldr',w1,'[pr,#prc__]')
 	genop('add',w1,'#cfp_b*' (prc.count - 1))
-	genop('ldr',w1, '[' w1 ']')			:(opdone)
+	genop('str',w1, '[' w1 ']')			:(opdone)
 
 *	*   1.12 EXI  _int_	  exit from procedure
 
@@ -1793,7 +1793,6 @@ g_sec
 
 g_sec.1
 
-	genop('.text')
 	genop('.global','sec01')
 	genopl('sec01')					:(opdone)
 
@@ -1809,7 +1808,9 @@ g_sec.2
 g_sec.3
 
 	genop('.global','sec03')
-	genopl('sec03')					:(opdone)
+	genopl('sec03')					
+	genop('.data')
+							:(opdone)
 
 *  working variables section
 
@@ -1842,9 +1843,12 @@ g_sec.5
 	genop('.global','end_min_data')
 	genopl('end_min_data')
 	genop('.global','sec05')
-	genopl('sec05')					:(opdone)
+	genopl('sec05')					
 
-*	stack overflow section.	 output exi__n tail code
+	genop('.text')
+							:(opdone)
+
+*	stack overflow section.	 output exit__n tail code
 
 g_sec.6
 
@@ -1913,8 +1917,9 @@ g_end.4
 
 	s = sort(pooltable,2)
 	i = 0
-	genop('.global','pool0')
-	genopl('pool0')
+	outfile = tab	'.global' tab 'pool0'
+	outfile = 'pool0:'
+	output_lines = output_lines + 2
 
 g_end.5
 	
