@@ -2356,7 +2356,8 @@ g_ldi
 g_adi
 
 	fetch(w1,arg1)
-	genop('adds',ia,ia,w1)				:(opdone)
+	genop('bl','adi_')
+							:(opdone)
 
 *	4.3	 MLI   _ops_ 
 
@@ -2366,10 +2367,7 @@ g_mli
 
 	fetch(ia,arg1)
 
-*	arm doesn't allow _muls_ destination register and first operand register to be the same, so
-*	swap the order since multiplication is commutative.
-
-	genop('muls',ia,w1,ia)				:(opdone)
+	genop('bl','mli_')				:(opdone)
 
 
 
@@ -2381,7 +2379,7 @@ g_mli
 g_sbi
 
 	fetch(w1,arg1)
-	genop('subs',ia,ia,w1)				:(opdone)
+	genop('bl','sbi_')				:(opdone)
 
 
 *	4.5	 DVI   _ops_
@@ -2391,44 +2389,18 @@ g_sbi
 
 g_dvi
 
-*	Use library procedure.
-
-	fetch(w0,arg1)
-	genop('bl','dvi__')				:(opdone)
-
-*	In ARM V7, signed and unsigned division are avilable in the THUMB instruction set, with
-*	the instructions UDIV and SDIV.
-
-
-*	Call library procedure (cf. int.asm) to check for zero divisor and do the division
-
-* NOTE: We could -- and probably should -- do check for zero by adding suitably large
-* integers to force overflow.
-
-*	Further note that check for divide by zero is not needed for bootstrap.
-
 	fetch(w1,arg1)
-	genop('sdiv',ia,ia,w1)				:(opdone)
+	genop('bl','dvi_')				:(opdone)
+
 
 *	4.6	 RMI   _ops_
 
-*	Set integer accumulator to `mod(intacc,_ops_)`
 
 g_rmi
 
-
-*	Call library procedure (cf. int.asm) to check for zero divisor and do the division
-
-*	Use library procedure.
-
-	fetch(w0,arg1)
-	genop('bl','rmi__')				:(opdone)
-
-	fetch(w0,arg1)
-	genop('rmi_')					:(opdone)
-
 	fetch(w1,arg1)
-	error ('rmi todo')				:(opdone)
+	genop('bl','rmi_')				:(opdone)
+
 
 *	4.7	 STI   _ops_
 
@@ -2445,7 +2417,10 @@ g_ngi
 
 *	Use NEG pseudo-instruction
 
-	genop('neg',ia,ia)				:(opdone)
+	genop('bl','ngi_')				:(opdone)
+
+*	The integer functions indicate overflow by setting w0 to one on return,
+*	or by returning zero in w0 if no overflow.
 
 *	4.9	 INO  _plbl_
 
@@ -2453,26 +2428,23 @@ g_ngi
 
 g_ino
 
-	jump('vc',arg1)					:(opdone)
-
-*	4.10 IOV  _plbl_
+	genop('tst',w0,w0)		
+	jump('eq',arg1)					:(opdone)
 
 *	Jump to _plbl_ if integer overflow
 
-*	These instructions can only occur immediately following an instruction which can cause 
-
+*	The instructions INO and IOV can only occur immediately following an instruction which can cause 
 *	integer overflow (ADI, SBI, MLI, DVI, RMI, and NGI) and test the result of the preceding instruction.
 
 *	IOV and INO may not have labels.
 
+
+*	4.10 IOV  _plbl_
+
 g_iov
 
-	jump('vs',arg1)					:(opdone)
-
-g_nov
-
-	jump('vc',arg1)					:(opdone)
-
+	genop('tst',w0,w0)
+	jump('ne',arg1)					:(opdone)
 
 *	4.11 IEQ  _plbl_
 

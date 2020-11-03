@@ -10,6 +10,12 @@
 #	r12 is procedure entry temporary workspace
 #	r14 is link register, return address at function exit
 
+#	The work registers w1, w2 and w3 are used only to translate a single minimal instruction.
+
+#	w1 is often used to load addresses of variables to be loaded.
+#	w2 is often used to load addresses of variables to be stored into.
+
+#	w0 is used to hold the return value from functions.
 
 	w0	.req	r0	@ work register, does not persist across inctructions
 	w1	.req	r1	@ used to fetch first operand
@@ -18,13 +24,12 @@
 	wa	.req	r3
 	wb	.req	r4
 	wc	.req	r5
-	ia	.req	r5	@ is overlaps wc
 	xl	.req	r6
 	xt	.req	r6
 	xr	.req	r7
 	cp	.req	r8
-	rc	.req	r10	@ return code (_rc_ in x64 version)
-	pr	.req	r11	@ pool base register
+	ia	.req	r9
+	pr	.req	r10	@ pool base register
 	xs	.req	sp
 
 	.set	cfp_c_val,4
