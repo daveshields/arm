@@ -2,7 +2,7 @@
 
 # copyright 2012-2015 david shields
 	.data		
-	.syntax		unified
+#	.syntax		unified
 
 #	results are usually returned in r0; real results in r0:r1
 
@@ -30,6 +30,7 @@
 	cp	.req	r8
 	ia	.req	r9
 	pr	.req	r10	@ pool base register
+	rc	.req	r11
 	xs	.req	sp
 
 	.set	cfp_c_val,4

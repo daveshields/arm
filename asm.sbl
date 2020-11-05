@@ -525,7 +525,9 @@ init
 **	use register for rcode since value not needed by osint (unless zz_trace is used, and
 **	it not being used for bootstrap).
 *
-*	rcode = minarg(5,'rc')
+*	rc is is kept in register
+
+	rcode = minarg(7,'rc')
 
 * symbolic target assignments
 
@@ -2046,19 +2048,19 @@ g_add
 * outfile = 'add other other'
 	fetch(w1,arg1)
 	fetch(w2,arg2)
-	genop('add',w1,w1,w2)
+	genop('adds',w1,w1,w2)
 	store(w1,arg1)					:(opdone)
 
 g_add_reg_reg
 * outfile = 'add reg reg'
 
-	genop('add',text(arg1),text(arg2))		:(opdone)
+	genop('adds',text(arg1),text(arg2))		:(opdone)
 
 g_add_reg_other
 * outfile = 'add reg other'
 
 	fetch(w1, arg2)	
-	genop('add',text(arg1),text(arg1),w1)		:(opdone)
+	genop('adds',text(arg1),text(arg1),w1)		:(opdone)
 
 *	2.2	 SUB   _opn,opv_
 
@@ -2070,18 +2072,18 @@ g_sub
 	isreg(arg1) isreg(arg2)				:s(g_sub_reg_reg)
 	fetch(w1,arg1)
 	fetch(w2,arg2)
-	genop('sub',w1,w1,w2)
+	genop('subs',w1,w1,w2)
 	store(w1,arg1)
 							:(opdone)
 
 g_sub_reg_reg
 
-	genop('sub',text(arg1),text(arg2))		:(opdone)
+	genop('subs',text(arg1),text(arg2))		:(opdone)
 
 g_sub_reg_other
 
 	fetch(w1,arg2)
-	genop('sub',text(arg1),text(arg1),w2)			:(opdone)
+	genop('subs',text(arg1),text(arg1),w2)			:(opdone)
 
 
 *	2.3	 ICA   _opn_
@@ -2188,13 +2190,15 @@ g_bop
 g_bnz
 
 	fetch(w1,arg1)
-	genop('orr',w1,w1)
+	genop('tst',w1,w1)
+*	genop('orr',w1,w1)
 	jump('ne',arg2)					:(opdone)
 
 g_bze	
 
 	fetch(w1,arg1)
-	genop('orrs',w1,w1)
+	genop('tst',w1,w1)
+*	genop('orrs',w1,w1)
 	jump('eq',arg2)					:(opdone)
 
 *	2.15 LCT  _w,opv_

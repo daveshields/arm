@@ -44,6 +44,17 @@
 
 	.global	minimal
 
+#	macros to enter and leave (return) from a procedure
+	
+	.macro	enter
+	stmdb	sp!,{fp,LR}
+	.endm
+
+	.macro	leave
+	ldm	sp!,{fp,PC}
+	.endm
+
+
 #	this file contains the assembly language routines that interface
 #	the macro spitbol compiler written in assembly language to the
 #	operating system interface functions written in c.
@@ -464,7 +475,7 @@ cprtmsg:
 #	operations on the integer accumulator
 
 	.global	adi_
-adi_
+adi_:
 	mov	w0,#0			@ assume no overflow
 	adds	ia,ia,w1
 	movvs	w0,#1			@ signal overflow
@@ -473,48 +484,49 @@ adi_
 	.global	mli_
 #	mul does not set overflow bit. It just returns low 32 bits of result.
 #	check for overflow by dividing result by argument to see if get same value back
-mli_
+mli_:
 	mov	w0,#0			@ assume no overflow
 	tst	w1,w1
-	mul	ia,ia,w1
-	jeq	1f			@ overflow not possible if result zero
+	mov	w2,ia
+	mul	ia,w2,w1
+	beq	1f			@ overflow not possible if result zero
 	mov	w0,#1
 	mov	PC,LR
-1f:
+1:
 	mov	w2,w1			@ save argument
 	sdiv	w2,ia,w1		@ w1 cannot be zero 
 	tst	w2,w1
-	jeq	1b			@ no overflow
+	beq	1b			@ no overflow
 	movvs	w0,#1			@ signal overflow
 	mov	PC,LR
 
 	.global	sbi_
-sbi_
+sbi_:
 	mov	w0,#0			@ assume no overflow
 	subs	ia,ia,w1
 	movvs	w0,#1			@ signal overflow
 	mov	PC,LR
 
 	.global	dvi_
-dvi_
+dvi_:
 	tst	w1,w1			@ test for divisor zero
-	jne	1f
+	bne	1f
 	mov	w0,#1			@ signal overflow
 	mov	PC,LR
-1f:
+1:
 	sdiv	ia,ia,w1
 	mov	w0,#1			@ overflow not possible
 	mov	PC,LR
 
 	.global	rmi_
-rmi_
+rmi_:
 	mov	w0,#0			@ assume no overflow
 	subs	ia,ia,w1
 	movvs	w0,#1			@ signal overflow
 	mov	PC,LR
 
 	.global	ngi_
-ngi_
+ngi_:
 	mov	w0,#0			@ assume no overflow
 	rsbs	ia,ia,#0		@ subtract from zero to negate
 	movvs	w0,#1			@ signal overflow
@@ -1089,6 +1101,7 @@ save_xr_:	.word	save_xr
 save_xs_:	.word	save_xs
 save_wa_:	.word	save_wa
 save_wb_:	.word	save_wb
+save_ia_:	.word	save_ia
 save_wc_:	.word	save_wc
 save_w0_:	.word	save_w0
 

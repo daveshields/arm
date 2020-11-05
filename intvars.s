@@ -49,6 +49,7 @@ dave:	.int	75
 	.global	save_wa
 	.global	save_wb
 	.global	save_wc
+	.global	save_ia
 	.global	save_w0
 
 	.global	prc_
@@ -143,6 +144,7 @@ save_xs:	.word	0		@ saved sp value
 save_wa:	.word	0		@ saved wa value
 save_wb:	.word	0		@ saved wb value
 save_wc:	.word	0		@ saved wc value
+save_ia:	.word	0		@ saved ia value
 save_w0:	.word	0		@ saved w0 value
 
 	.global	minimal_id
