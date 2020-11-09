@@ -329,7 +329,7 @@ fetch_10
 *	ident(text(iarg),'(xs)+) genop('pop','{' reg '})	:s(return)
 	
 	base = substr(text(iarg),2,2)
-	offset = const((differ(kind) 'cfp_b',1))
+	offset = const((ident(kind) 'cfp_b',1))
 	genop(op,reg, '[' base  '],' offset)			:(return)
 
 fetch_11
@@ -337,7 +337,7 @@ fetch_11
 *	-(x), register indirect, pre decrement
 
 	base = substr(text(iarg),3,2)
-	offset = const((differ(kind) '-1', '-cfp_b'))
+	offset = const((ident(kind) '-1', '-cfp_b'))
 	genop(op,reg,'[' base ',' offset ']!')			:(return)
 
 fetch_12
@@ -1160,7 +1160,7 @@ store_10
 *	ident(text(iarg),'(xs)+) genop('pop','{' reg '})	:s(return)
 	
 	base = substr(text(iarg),2,2)
-	offset = const((differ(kind) 'cfp_b',1))
+	offset = const((ident(kind) 'cfp_b',1))
 	genop(op,reg, '[' base  '],' offset)			:(return)
 
 store_11
@@ -1168,7 +1168,7 @@ store_11
 *	-(x), register indirect, pre decrement
 
 	base = substr(text(iarg),3,2)
-	offset = const((differ(kind) '-1', '-cfp_b'))
+	offset = const((ident(kind) '-1', '-cfp_b'))
 	genop(op,reg,'[' base ',' offset ']!')			:(return)
 
 store_12
@@ -1690,7 +1690,7 @@ g_ppm.loop
 	lab_next = genlab()
 	genop('mov',w0,rc)
 	genop('subs',w0,w0,const(1))
-	jump('pl',lab_next)
+	jump('ne',lab_next)
 
 	ident(incode,'ppm')				:s(g_ppm.loop.ppm)
 
@@ -2140,23 +2140,34 @@ g_bne	cond = 'ne'					:(g_bop)
 
 *	Branch to _plbl_  _opn_ gt  _opv_
 
-g_bgt	cond = 'gt'					:(g_bop)
+g_bgt	cond = 'hi'					:(g_bop)
 
 *	2.8	 BGE   _opn,opv,plbl_
 
-g_bge	cond = 'ge'					:(g_bop)
+g_bge	
+
+	fetch(w2,arg2)
+	genop('cmp',w1,w2)
+	jump('eq',arg3)
+	jump('hi',arg3)					:(opdone)
 
 *	Branch to _plbl_  _opn_ ge  _opv_
 
 *	2.9	 BLT   _opn,opv,plbl_
 
-g_blt	cond = 'lt'					:(g_bop)
+g_blt	cond = 'ls'					:(g_bop)
 
 *	Branch to _plbl_  _opn_ lt  _opv_
 
 *	2.10 BLE   _opn,opv,plbl_
 
-g_ble	cond = 'le'					:(g_bop)
+g_ble	
+
+	fetch(w1,arg1)
+	fetch(w2,arg2)
+	genop('cmp',w1,w2)
+	jump('ls',arg3)
+	jump('eq',arg3)					:(opdone)
 
 *	Branch to _plbl_  _opn_ le  _opv_
 
@@ -2190,15 +2201,13 @@ g_bop
 g_bnz
 
 	fetch(w1,arg1)
-	genop('tst',w1,w1)
-*	genop('orr',w1,w1)
+	genop('cmp',w1,w1)
 	jump('ne',arg2)					:(opdone)
 
 g_bze	
 
 	fetch(w1,arg1)
-	genop('tst',w1,w1)
-*	genop('orrs',w1,w1)
+	genop('cmp',w1,w1)
 	jump('eq',arg2)					:(opdone)
 
 *	2.15 LCT  _w,opv_
@@ -2241,7 +2250,7 @@ g_bct
 
 	reg = text(arg1)
 	genop('subs',reg,const(1))
-	jump('ge',arg2)				:(opdone)
+	jump('ne',arg2)				:(opdone)
 
 *	2.17 AOV   _opn,opv,plbl_
 
@@ -2432,7 +2441,7 @@ g_ngi
 
 g_ino
 
-	genop('tst',w0,w0)		
+	genop('cmp',w0,w0)		
 	jump('eq',arg1)					:(opdone)
 
 *	Jump to _plbl_ if integer overflow
@@ -2447,7 +2456,7 @@ g_ino
 
 g_iov
 
-	genop('tst',w0,w0)
+	genop('cmp',w0,w0)
 	jump('ne',arg1)					:(opdone)
 
 *	4.11 IEQ  _plbl_
@@ -3326,7 +3335,7 @@ g_chk
 *	one if no space remains.
 
 	genop('chk_')	
-	genop('tst',w0,w0)
+	genop('cmp',w0,w0)
 	jump('ne',minarg(6,'sec06'))			:(opdone)
 
 *	old code (it wrongly accesses lowspmin from sbl.s)

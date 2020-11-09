@@ -21,16 +21,16 @@
 	w1	.req	r1	@ used to fetch first operand
 	w2	.req	r2	@ used to fetch second operand
 	w3	.req	r3	@ temporary work register
-	wa	.req	r3
-	wb	.req	r4
-	wc	.req	r5
-	xl	.req	r6
-	xt	.req	r6
-	xr	.req	r7
-	cp	.req	r8
-	ia	.req	r9
-	pr	.req	r10	@ pool base register
-	rc	.req	r11
+	wa	.req	r4
+	wb	.req	r5
+	wc	.req	r6
+	xl	.req	r7
+	xt	.req	r7
+	xr	.req	r8
+	cp	.req	r9
+	ia	.req	r10
+	pr	.req	r11	@ pool base register
+	rc	.req	r12
 	xs	.req	sp
 
 	.set	cfp_c_val,4
