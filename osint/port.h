@@ -170,7 +170,8 @@ typedef unsigned int uword;	// minimal word as unsigned value
 /	different DPMI platforms.
 */
 
-#define CHUNK_SIZE	32768
+//#define CHUNK_SIZE	32768
+#define CHUNK_SIZE	131072
 #define CHUNK_B_SIZE	(CHUNK_SIZE * sizeof(word))
 #define HEAP_SIZE	16777216	// 16Mwords = 64Mbytes
 #define OBJECT_SIZE	1048576		// 1 Mword = 4 Mbytes

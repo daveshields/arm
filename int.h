@@ -27,10 +27,10 @@
 	xl	.req	r7
 	xt	.req	r7
 	xr	.req	r8
-	cp	.req	r9
-	ia	.req	r10
-	pr	.req	r11	@ pool base register
-	rc	.req	r12
+#	cp	.req	r9
+	ia	.req	r9
+	pr	.req	r10	@ pool base register
+	rc	.req	r11
 	xs	.req	sp
 
 	.set	cfp_c_val,4

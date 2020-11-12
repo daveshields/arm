@@ -377,6 +377,15 @@ fetch_18
 
 *	=dlbl
 
+	genop('mov',reg,const(substr(text(iarg),2)))		:(return)
+
+fetch_19
+
+*	*dlbl
+
+	offset = 'cfp_b*' substr(text(iarg),2)
+	genop('mov',reg,const(offset))				:(return)
+
 fetch_20
 
 *	=wlbl
@@ -390,13 +399,6 @@ fetch_22
 
 	pooladd(substr(text(iarg),2))
 	genop('ldr',reg,'[' pr ',' const(substr(text(iarg),2) '_]'))		:(return)
-
-fetch_19
-
-*	*dlbl
-
-	offset = 'cfp_b*' substr(text(iarg),2)
-	genop('mov',reg,const(offset))				:(return)
 
 fetch_24
 
@@ -1144,7 +1146,7 @@ store_8
 
 *	w,x, map register name
 
-	genop('mov',reg,text(iarg))				:(return)
+	genop('mov',text(iarg),reg)				:(return)
 
 store_9
 
@@ -1627,7 +1629,7 @@ g_exi
 
 *	if type r or e, and no exit parameters, just return
 
-	differ(t2,'n') eq(prc.args)	genop('mov',pc,LR) :s(g_exi.2)
+	differ(t2,'n') eq(prc.args)			:s(g_exi.2)
 	t3 = ident(t3) '0'
 	genop('mov',w0,const(t3))
 	genop('mov',rc,w0)
@@ -1639,10 +1641,9 @@ g_exi.1
 
 g_exi.2
 
-*	restore LR and return
+*	restore PC from saved value of LR
 
-	genop('pop','{LR}')
-	genop('mov',PC,LR)				:(opdone)
+	genop('pop','{PC}')				:(opdone)
 
 
 *	*   1.13 ENP  define end of procedure body
@@ -1979,7 +1980,7 @@ g_dcv
 
 g_zer
 
-	genop('eor',w1,w1)
+	genop('mov',w1,const(0))
 	store(w1,arg1)
 							:(opdone)
 
@@ -1991,8 +1992,7 @@ g_zer
 
 g_mnz
 
-	genop('eor',w0,w0)
-	genop('add',w0,const(1))
+	genop('mov',w0,const(1))
 	store(w0,arg1)
 							:(opdone)
 
@@ -2315,6 +2315,8 @@ g_bod
 
 g_lcp	
 
+	fetch(w1,arg1)
+	genop('bl','lcp_');				:(opdone)
 	
 	genop('mov',cp,text(arg1))			:(opdone)
 
@@ -2324,6 +2326,9 @@ g_lcp
 *	register into reg_ (CP) is unchanged.
 
 g_scp	     
+
+	genop('bl','scp_')
+	genop('mov',text(arg1),w1)			:(opdone)
 
 	genop('mov',text(arg1),cp)			:(opdone)
 
@@ -2338,6 +2343,9 @@ g_scp
 
 g_lcw  
 
+	genop('bl','lcw_')
+	genop('mov',text(arg1),w1);			:(opdone)
+
 	genop('ldr',text(arg1),'[' cp ']')
 	genop('add',cp,cp,const(1))			:(opdone)
 
@@ -2350,6 +2358,7 @@ g_lcw
 
 g_icp	
 
+	genop('bl','icp_')				:(opdone)
 	genop('add',cp,cp,const(1))			:(opdone)
 
 *	#### 4-	 Operations on Signed Integer Values
@@ -2499,7 +2508,7 @@ g_ine	cond = 'ne'					:(g_ia)
 
 g_ia
 
-	genop('orrs',ia,ia,ia)
+	genop('cmp',ia,ia)
 	jump(cond,arg1)					:(opdone)
 
 
@@ -2965,7 +2974,7 @@ g_rsx
 g_nzb	
 	
 	reg = text(arg1)
-	genop('orrs',reg,reg)
+	genop('cmp',reg,reg)
 	jump('ne',arg2)					:(opdone)
 
 *	7.10 ZRB  w,_plbl_
@@ -2974,7 +2983,7 @@ g_nzb
 
 g_zrb
 	reg = text(arg1)
-	genop('orrs',reg,reg)
+	genop('cmp',reg,reg)
 	jump('eq',arg2)					:(opdone)
 
 *	7.11 ZGB   _opn_

@@ -395,10 +395,36 @@ min1:
 
 	mov	PC,LR		@ return to minimal code
 
+	.global	lcp_
+lcp_:
+	ldr	w0,reg_cp_
+	str	w1,[w0]
+	mov	PC,LR
+
+	.global	scp_
+scp_:
+	ldr	w0,reg_cp_
+	ldr	w1,[w0]
+	mov	PC,LR
+
+	.global	icp_
+icp_:
+	ldr	w0,reg_cp_
+	ldr	w1,[w0]
+	add	w1,#cfp_b
+	str	w1,[w0]
+	mov	PC,LR
+
+	.global	lcw_
+lcw_:
+	ldr	w0,reg_cp_
+	ldr	w1,[w0]
+	add	w2,w1,#cfp_b
+	str	w2,[w0]
+
 	.global	cvd_
 	.type	cvd_,%function
 cvd_:
-
 	enter
 	ldr	w1,reg_ia_
 	str	wc,[w1]
@@ -578,18 +604,24 @@ ngi_:
 #		      8		take procedure exit 3
 #		     ...	...
 
+	mov	r12,#0			@ for debugging
 
 	.macro	syscall	proc,id
 
+#	pop	{LR}
 	ldr	w1,reg_pc_
-	str	LR,[w1]			@ save return address (from osint)
+	str	LR,[w1]			@ save return address (from sbl)
 
+	mov	r12,\id
+#	add	r12,r12,#1
 	bl	syscall_init
 
 #	save compiler stack and switch to osint stack
 
 	ldr	w1,compsp_		@ Save compiler's stack pointer
 	str	sp,[w1]
+	ldr	w1,osisp_
+	ldr	sp,[w1]
 	bl	\proc
 	b	syscall_exit		@
 	.endm
@@ -607,7 +639,10 @@ syscall_init:
 	str	wb,[w1]
 
 	ldr	w1,reg_wc_
-	str	wc,[w1]			 @ (also _reg_ia)
+	str	wc,[w1]			 
+
+	ldr	w1,reg_ia_
+	str	ia,[w1]	
 
 	ldr	w1,reg_xl_
 	str	xl,[w1]
@@ -632,12 +667,15 @@ syscall_exit:
 	ldr	wb,[wb]
 	ldr	wc,reg_wc_
 	ldr	wc,[wc]
+	ldr	ia,reg_ia_
+	ldr	ia,[ia]
 	ldr	xr,reg_xr_
 	ldr	xr,[xr]
 	ldr	xl,reg_xl_
 	ldr	xl,[xl]
 	ldr	w1,reg_pc_
-	ldr	pc,[w1]			@ load return address from caller and branch to it
+	ldr	w1,[w1]
+	bx      w1			@ load return address from caller and branch to it
 
 	.global	chk__
 chk__:
