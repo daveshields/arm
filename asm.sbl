@@ -389,9 +389,16 @@ fetch_19
 fetch_20
 
 *	=wlbl
+
+	pooladd(substr(text(iarg),2))
+	genop('ldr',reg,'[' pr ',' const(substr(text(iarg),2) '_]'))		:(return)
+
 fetch_21
 
 *	=clbl
+
+	pooladd(substr(text(iarg),2))
+	genop('ldr',reg,'[' pr ',' const(substr(text(iarg),2) '_]'))		:(return)
 
 fetch_22
 
@@ -496,7 +503,7 @@ init
 	wa = 'wa'; wb = 'wb'; wc = 'wc'
 	xl = 'xl'; xr = 'wr'; 
 	xs = 'xs'; xt = xs
-	ia = wc
+	ia = 'ia'
 	cp = 'cp' 
 
 *	rc holds return code from osint call.
@@ -1018,6 +1025,7 @@ outstmt_end
 pooladd
 
 	ident(label)					:s(return)
+*	genop('mov',w3,const(pooltable[label]))
 	differ(pooltable[label])				:s(return)
 	pooltable[label] = pooltablen 
 	genop('.set',label '_,' pooltablen '*cfp_b')
@@ -1184,7 +1192,7 @@ store_13
 *	location dlbl words beyond adress in x, where dlbl in definiton section
 	text(iarg) break('(') . offset '(' len(2) . base
 
-	genop('ldr',w1,'[' base ']')
+	genop('mov',w1, base )
 	genop('add',w1,const('cfp_b*' offset))
 	genop(op,reg,'[' w1 ']')				:(return)
 
@@ -1606,7 +1614,7 @@ g_prc.n
 	genop('mov',w0,LR)
 	genop('ldr',w1,'[pr,#prc__]')
 	genop('add',w1,'#cfp_b*' (prc.count - 1))
-	genop('str',w1, '[' w1 ']')			:(opdone)
+	genop('str',w0, '[' w1 ']')			:(opdone)
 
 *	*   1.12 EXI  _int_	  exit from procedure
 
@@ -3038,8 +3046,8 @@ g_btw
 
 g_mti	
 
-	fetch(w0,arg1);* load address
-	genop('ldr',ia, '[' w0 ']')			:(opdone)
+	fetch(ia,arg1);* load address
+							 :(opdone)
 
 *	8.4	 MFI   _opn,plbl_
 
