@@ -351,7 +351,7 @@ fetch_13
 *	location dlbl words beyond adress in x, where dlbl in definiton section
 
 	text(iarg) break('(') . offset '(' len(2) . base
-	genop('ldr',w1,'[' base ']')
+	genop('mov',w1, base )
 	genop('add',w1,const('cfp_b*' offset))
 	genop(op,reg,'[' w1 ']')				:(return)
 
@@ -1645,7 +1645,11 @@ g_exi
 
 g_exi.1
 
-	jump(, prcent(prc.count))			:(opdone)
+	genop('ldr',w1,'[pr,#prc__]')
+	genop('add',w1,'#cfp_b*' (prc.count - 1))
+	genop('ldr',w1,'[' w1 ']')
+	genop('bx',w1)					:(opdone)
+*	jump(, prcent(prc.count))			:(opdone)
 
 g_exi.2
 
