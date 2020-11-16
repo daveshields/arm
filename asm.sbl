@@ -337,7 +337,7 @@ fetch_11
 *	-(x), register indirect, pre decrement
 
 	base = substr(text(iarg),3,2)
-	offset = const((ident(kind) '-1', '-cfp_b'))
+	offset = const((ident(kind) '-cfp_b', '-1'))
 	genop(op,reg,'[' base ',' offset ']!')			:(return)
 
 fetch_12
@@ -1178,7 +1178,7 @@ store_11
 *	-(x), register indirect, pre decrement
 
 	base = substr(text(iarg),3,2)
-	offset = const((ident(kind) '-1', '-cfp_b'))
+	offset = const((ident(kind) '-cfp_b', '-1'))
 	genop(op,reg,'[' base ',' offset ']!')			:(return)
 
 store_12
@@ -1703,7 +1703,7 @@ g_ppm.loop
 	lab_next = genlab()
 	genop('mov',w0,rc)
 	genop('subs',w0,w0,const(1))
-	jump('ne',lab_next)
+	jump('lt',lab_next)
 
 	ident(incode,'ppm')				:s(g_ppm.loop.ppm)
 
@@ -1752,13 +1752,6 @@ g_erb
 	genop('mov',w0,const(text(arg1)))
 	genop('mov',rc,w0)
 	jump(,'err_')					:(opdone)
-
-g_ssl
-g_sss
-g_rtn
-
-	genop()						:(opdone)
-
 *	real operations
 
 *	lch requires separate cases for each first operand possibility.
@@ -1972,8 +1965,11 @@ g_end.5
 
 g_icv
 
+	isreg(arg1) genop('add',text(arg1),text(arg1),const(1)) :s(opdone)
+
 	fetch(w1,arg1)
-	genop('add',w1,const(1))			:(opdone)
+	genop('add',w1,const(1))			
+	store(w1,arg1)					:(opdone)
 
 *	1.17 DCV   _opn_	  decrement value by one
 
@@ -2031,6 +2027,12 @@ g_mnz
 *	SSL and SSS are no-ops if no private link stack is not used.
 
 *	A private link stack is not used in the ARM implementation.
+
+g_ssl
+g_sss
+g_rtn
+
+	genop()						:(opdone)
 
 *	1.22 RTN define start of routine
 
@@ -2167,7 +2169,7 @@ g_bge
 
 *	2.9	 BLT   _opn,opv,plbl_
 
-g_blt	cond = 'ls'					:(g_bop)
+g_blt	cond = 'lt'					:(g_bop)
 
 *	Branch to _plbl_  _opn_ lt  _opv_
 
@@ -2736,7 +2738,8 @@ g_psc
 	fetch(w1,arg1)
 	eq(type(arg2)) 	genop('eor',w2,w2);* no opv
 	ne(type(arg2)) 	fetch(w2,arg2)
-	genop('add',w1,w1,w2,'cfp_f')			
+	genop('add',w2,const('cfp_f'))
+	genop('add',w1,w1,w2)			
 	store(w1,arg1)					:(opdone)
 
 *	6.3	 LCH  _reg,opc_

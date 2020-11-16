@@ -654,7 +654,7 @@ syscall_init:
 
 syscall_exit:
 
-#	mov	rc,w0			@ save return code from function
+	mov	rc,w0			@ save return code from function
 
 	ldr	w1,osisp_
 	str	xs,[w1]		 	@ save osint's stack pointer
