@@ -49,26 +49,6 @@
 
 *	    also reads <file>.pub   for debug symbols to be declared public
 
--stitl crack(line)
-	define('crack(line)operands,operand,char')	:(crack_end)
-
-*	crack is called to create a stmt plex containing the various parts of the minimal source
-*	statement in line.  for conditional assembly ops, the opcode is the op, and op1 is the symbol.
-*	note that dtc is handled as a special case to assure that the decomposition is correct.
-
-*	crack prints an error and fails if a syntax error occurs.
-
-*	crack parses stmt into a stmt data plex and returns it. it fails if there is a syntax error.
-
-crack
-
-	nstmts	= nstmts + 1
-	op1 = op2 = op3 = typ1 = typ2 = typ3 =
-	line	p.csparse				:s(return)
-*	here on syntax error
-
-	error('source line syntax error')		:(freturn)
-crack_end
 -stitl	chktrace()
 	define('chktrace()')				:(chktrace_end)
 chktrace
@@ -125,6 +105,25 @@ chktrace.1
 							:(return)
 
 chktrace_end
+-stitl comregs(line)t,pre,word
+	define('comregs(line)t,pre,word')		:(comregs_end)
+
+*	map minimal register names to target register names
+*	Since same names used for both in this version, no need to change comment.
+
+comregs
+	
+	comregs = line					:(return)
+
+	line p.comregs =				:f(comregs1)
+	word = eq(size(word),2) differ(t = word) t
+	comregs = comregs pre word			:(comregs)
+
+comregs1 
+
+	comregs = comregs line				:(return)
+
+comregs_end
 -sttl	const	return value of symbol defined in definition section
 	define('const(iarg)val')			:(const_end)
 
@@ -161,79 +160,26 @@ const_1
 	const = ident(datatype(iarg),minarg) '#' text(iarg)	:s(return)
 
 const_end
--stitl	flush
--stitl	flush
-	define('flush()i')				:(flush_end)
+-stitl crack(line)
+	define('crack(line)operands,operand,char')	:(crack_end)
 
-flush
+*	crack is called to create a stmt plex containing the various parts of the minimal source
+*	statement in line.  for conditional assembly ops, the opcode is the op, and op1 is the symbol.
+*	note that dtc is handled as a special case to assure that the decomposition is correct.
 
-*	attach input label and comment to first instruction generated and generate stmts.
+*	crack prints an error and fails if a syntax error occurs.
 
-	eq(stmts.n)					:s(return)
+*	crack parses stmt into a stmt data plex and returns it. it fails if there is a syntax error.
 
-*	here if some statements to emit, so output single 'null' statement to get label and
-*	comment field right.
+crack
 
-	label = thislabel =
-	i = 1
+	nstmts	= nstmts + 1
+	op1 = op2 = op3 = typ1 = typ2 = typ3 =
+	line	p.csparse				:s(return)
+*	here on syntax error
 
-flush_1
-
-	ident(stmts[i])					:s(flush_2)
-	outstmt(stmts[i])
-	le(i = i + 1, stmts.n)				:s(flush_1)
-
-flush_2
-
-	stmts.n =					:(return)
-
-flush_end
--stitl genz
-	define('genz()')				:(genz_end)
-
-*	generate trace instruction if needed.
-
-genz
-
-*	     no trace if trace has been suspended
-*	     output = ne(z_suspend) 'z_suspend ' thisline
-
-	ne(z_suspend)					:s(return)
-
-*  only trace at label definition
-*	     ident(thislabel)			     :s(return)
-
-	z_count = z_count + 1
-	gt(z_first) le(z_count,z_first)			:s(return)
-	gt(z_limit)  gt(z_count, z_limit)		:s(return)
-
-*	     always generate trace if at label definition
-
-	z_desc = '"' replace(thisline,sepchar,' ') '"'
-	outfile = tab 'zzz' tab z_count ',' input_lines ',' z_desc
-	output_lines = output_lines + 1
-							:(return)
-
-genz_end
--stitl comregs(line)t,pre,word
-	define('comregs(line)t,pre,word')		:(comregs_end)
-
-*	map minimal register names to target register names
-*	Since same names used for both in this version, no need to change comment.
-
-comregs
-	
-	comregs = line					:(return)
-
-	line p.comregs =				:f(comregs1)
-	word = eq(size(word),2) differ(t = word) t
-	comregs = comregs pre word			:(comregs)
-
-comregs1 
-
-	comregs = comregs line				:(return)
-
-comregs_end
+	error('source line syntax error')		:(freturn)
+crack_end
 -stitl error(text)
 	define('error(text)')				:(error_end)
 
@@ -418,6 +364,32 @@ fetch_27
 	error('fetch type not valid, but is ' type(iarg))	:(freturn)
 
 fetch_end
+-stitl	flush
+	define('flush()i')				:(flush_end)
+
+flush
+
+*	attach input label and comment to first instruction generated and generate stmts.
+
+	eq(stmts.n)					:s(return)
+
+*	here if some statements to emit, so output single 'null' statement to get label and
+*	comment field right.
+
+	label = thislabel =
+	i = 1
+
+flush_1
+
+	ident(stmts[i])					:s(flush_2)
+	outstmt(stmts[i])
+	le(i = i + 1, stmts.n)				:s(flush_1)
+
+flush_2
+
+	stmts.n =					:(return)
+
+flush_end
 -stitl genlab()
 
 	define('genlab()')				:(genlab_end)
@@ -429,6 +401,16 @@ genlab
 	genlab = '_l' lpad(genlabels = genlabels + 1,4,'0') :(return)
 
 genlab_end
+-stitl genop(gopc,gop1,gop2,gop3)
+	define('genop(gopc,gop1,gop2,gop3)')		:(genop_end)
+
+*	generate operation with no label
+
+genop
+
+	genopl(,gopc,gop1,gop2,gop3)			:(return)
+
+genop_end
 -stitl genopl(gopl,gopc,gop1,gop2,gop3)
 	define('genopl(gopl,gopc,gop1,gop2,gop3)')	:(genopl_end)
 
@@ -441,16 +423,33 @@ genopl
 	stmts[stmts.n = stmts.n + 1] = tstmt(gopl,gopc,gop1,gop2,gop3) :(return)
 
 genopl_end
--stitl genop(gopc,gop1,gop2,gop3)
-	define('genop(gopc,gop1,gop2,gop3)')		:(genop_end)
+-stitl genz
+	define('genz()')				:(genz_end)
 
-*	generate operation with no label
+*	generate trace instruction if needed.
 
-genop
+genz
 
-	genopl(,gopc,gop1,gop2,gop3)			:(return)
+*	     no trace if trace has been suspended
+*	     output = ne(z_suspend) 'z_suspend ' thisline
 
-genop_end
+	ne(z_suspend)					:s(return)
+
+*  only trace at label definition
+*	     ident(thislabel)			     :s(return)
+
+	z_count = z_count + 1
+	gt(z_first) le(z_count,z_first)			:s(return)
+	gt(z_limit)  gt(z_count, z_limit)		:s(return)
+
+*	     always generate trace if at label definition
+
+	z_desc = '"' replace(thisline,sepchar,' ') '"'
+	outfile = tab 'zzz' tab z_count ',' input_lines ',' z_desc
+	output_lines = output_lines + 1
+							:(return)
+
+genz_end
 -sttl	init - initialize global constants and variables
 	define('init()')				:(init_end)
 
@@ -774,7 +773,7 @@ nopub
 							:(flgs.skip)
 flgs
 
-	flags ? ((len(1) break(';				:')) . flag len(1)) |
+	flags ? ((len(1) break(';:')) . flag len(1)) |
 .	 ((len(1) rem) . flag) =			:f(flgs2)
 	flag = replace(flag,lcase,ucase)
 	output = "  flag				: " flag
@@ -785,19 +784,8 @@ flgs.skip
 flgs2
 							:(return)
 init_end
--stitl	isreg(iarg)
-	define('isreg(iarg)c')				:(isreg_end)
-
-*	succeeds if _iarg_ is a minimal register name, fails otherwise.
-
-isreg
-
-* output = 'isreg datatype ' datatype(iarg) ' <' datatype(iarg) '>'
-	ge(type(iarg),7) le(type(iarg),8)		:f(freturn)s(return)
-
-isreg_end
 -stitl initmap(str)
-	define('initmap(str),index,val')		:(initmap_end)
+	define('initmap(str)index,lastval,val')		:(initmap_end)
 
 *	this routine is called to initialize a table from a string of index/value pairs.
 
@@ -830,6 +818,17 @@ include.next
 	endfile(4)					:(return)
 
 include.end
+-stitl	isreg(iarg)
+	define('isreg(iarg)')				:(isreg_end)
+
+*	succeeds if _iarg_ is a minimal register name, fails otherwise.
+
+isreg
+
+* output = 'isreg datatype ' datatype(iarg) ' <' datatype(iarg) '>'
+	ge(type(iarg),7) le(type(iarg),8)		:f(freturn)s(return)
+
+isreg_end
 -stitl	jump	jump if condition met
 	define('jump(cond,iarg)base,lbl,op,reg,offset')	:(jump_end)
 
@@ -917,27 +916,6 @@ jump_27
 	error('jump type not valid, but is ' type(iarg))	:(freturn)
 
 jump_end
--stitl	move - load value from memory
-	define('move(reg,iarg,kind)')			:(move_end)
-
-*	load address from memory to register
-*	This is similar to _fetch_, except emit _mov_ not _ldr_
-
-move
-
-*	ident(datatype(iarg),'string')  genop('FETCH' kind,reg, iarg)
-*	differ(datatype(iarg),'string') genop('FETCH' kind,reg,text(iarg))
-*			:(return)
-* output = 'move reg<' reg '> type<' type(iarg) '> text <' text(iarg) '> kind <' kind '>'
-	genmem('mov',reg,iarg,kind)			:(return)
-
-move_end
--stitl prcent(n)
-	define('prcent(n)')				:(prcent_end)
-
-prcent prcent = 'prc_+cfp_b*' ( n - 1)			:(return)
-
-prcent_end
 -stitl outstmt(ostmt)label,opcode,op1,op2,op3,comment,line)
 	define('outstmt(ostmt)line,label,opcode,op1,op2,op3,comment,t,stmtout')
 .			:(outstmt_end)
@@ -1032,6 +1010,12 @@ pooladd
 	pooltablen = pooltablen + 1				:(return)
 
 pooladd_end
+-stitl prcent(n)
+	define('prcent(n)')				:(prcent_end)
+
+prcent prcent = 'prc_+cfp_b*' ( n - 1)			:(return)
+
+prcent_end
 -stitl prsarg(iarg)
 	define('prsarg(iarg)l1,l2')			:(prsarg_end)
 prsarg
