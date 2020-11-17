@@ -535,7 +535,7 @@ sbi_:
 
 	.global	dvi_
 dvi_:
-	tst	w1,w1			@ test for divisor zero
+	cmp	w1,w1			@ test for divisor zero
 	bne	1f
 	mov	w0,#1			@ signal overflow
 	mov	PC,LR

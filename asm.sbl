@@ -2,11 +2,9 @@
 -stitl description
 
 * use # as start of line for full-line comment
-* use // for rest of line comment
-* registers are $n or $rn
-* can also use @ for end-line comment
+* use @ for end-line comment
+* registers are $rn
 * use directive  .syntax unified
-
 
 *	Copyright 1987-2012 robert b. k. dewar and mark emmer.
 *	Copyright 2012-2017 david shields
@@ -500,7 +498,7 @@ init
 
 	w0 = 'w0'; w1 = 'w1'; w2 = 'w2'; w3 = 'w3'
 	wa = 'wa'; wb = 'wb'; wc = 'wc'
-	xl = 'xl'; xr = 'wr'; 
+	xl = 'xl'; xr = 'xr'; 
 	xs = 'xs'; xt = xs
 	ia = 'ia'
 	cp = 'cp' 
@@ -2142,8 +2140,9 @@ g_bgt	cond = 'hi'					:(g_bop)
 
 *	2.8	 BGE   _opn,opv,plbl_
 
-g_bge	
+g_bge
 
+	fetch(w1,arg1)
 	fetch(w2,arg2)
 	genop('cmp',w1,w2)
 	jump('eq',arg3)
@@ -2153,19 +2152,26 @@ g_bge
 
 *	2.9	 BLT   _opn,opv,plbl_
 
-g_blt	cond = 'lt'					:(g_bop)
-
 *	Branch to _plbl_  _opn_ lt  _opv_
+
+g_blt	
+
+	fetch(w1,arg1)
+	fetch(w2,arg2)
+	genop('cmp',w1,w2)
+	cmp_label = genlab()
+	jump('hi',cmp_label)
+	jump('ne',arg3)				
+	genopl(cmp_label)
+							:(opdone)
+
 
 *	2.10 BLE   _opn,opv,plbl_
 
 g_ble	
 
-	fetch(w1,arg1)
-	fetch(w2,arg2)
-	genop('cmp',w1,w2)
-	jump('ls',arg3)
-	jump('eq',arg3)					:(opdone)
+	cond = 'ls'					:(g_bop)
+
 
 *	Branch to _plbl_  _opn_ le  _opv_
 
