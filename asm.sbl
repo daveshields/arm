@@ -2367,6 +2367,9 @@ g_icp
 
 *	#### 4-	 Operations on Signed Integer Values
 
+*	In the arm implementation, the integer functions indicate overflow by setting w0 to one 
+*	on return, or by returning w0 to zero if no overflow.
+
 *	4.1	 LDI   _ops_
 
 *	Load integer accumulator from  _ops_
@@ -2381,8 +2384,10 @@ g_ldi
 
 g_adi
 
-	fetch(w1,arg1)
-	genop('bl','adi_')
+	fetch(w0,arg1)
+	genop('adds',ia,w0)
+	genop('movvc',w0,const(0))
+	genop('movvs',w0,const(1))
 							:(opdone)
 
 *	4.3	 MLI   _ops_ 
@@ -2391,9 +2396,24 @@ g_adi
 
 g_mli
 
-	fetch(ia,arg1)
 
-	genop('bl','mli_')				:(opdone)
+*	Could try code below, but for now just use implementation in C.
+
+	fetch(w0,arg1)
+	genop('mli_')					:(opdone)
+
+*	arm multiply does not set overflow bit, so do 32 by 32 multiply and see if high-order
+*	word in all ones or all zeros, in which case the result is correct. Otherwise oveflow occurred.
+	
+	fetch(w0,arg1)
+	genup('smull',ia,w1,ia,w0)
+	genop('cmp',w1,ia,'asr #31')
+
+*	zero flag set if overflow, or nonzero if no overflow.
+
+	genop('movne',w0,const(0))
+	genop('moveq',w0,const(1))
+							:(opdone)
 
 
 
@@ -2404,8 +2424,11 @@ g_mli
 
 g_sbi
 
-	fetch(w1,arg1)
-	genop('bl','sbi_')				:(opdone)
+	fetch(w0,arg1)
+	genop('subs',ia,w0)
+	genop('movvc',w0,const(0))
+	genop('movvs',w0,const(1))
+							:(opdone)
 
 
 *	4.5	 DVI   _ops_
@@ -2415,8 +2438,18 @@ g_sbi
 
 g_dvi
 
+*	Could try code below, but for now just use implementation in C.
+
+	fetch(w0,arg1)
+	genop('dvi_')					:(opdone)
+
 	fetch(w1,arg1)
-	genop('bl','dvi_')				:(opdone)
+	cmp(w1,w1)	
+	genop('sdivne',ia,w1)
+	cmp(w1,w1)
+	genop('moveq',w0,const(1))
+	genop('movne',w0,const(0))
+							:(opdone)
 
 
 *	4.6	 RMI   _ops_
@@ -2424,7 +2457,7 @@ g_dvi
 
 g_rmi
 
-	fetch(w1,arg1)
+	fetch(w0,arg1)
 	genop('bl','rmi_')				:(opdone)
 
 
@@ -2441,9 +2474,11 @@ g_sti
 
 g_ngi
 
-*	Use NEG pseudo-instruction
-
-	genop('bl','ngi_')				:(opdone)
+	genop('mov',w0,const(0))
+	genop('subs',ia,w0,ia)
+	genop('movvc',w0,const(0))
+	genop('movvs',w0,const(1))
+							:(opdone)
 
 *	The integer functions indicate overflow by setting w0 to one on return,
 *	or by returning zero in w0 if no overflow.
@@ -3136,14 +3171,27 @@ g_ctb
 *	(IA) undefined. execution of CVM leaves the result in (WB) undefined.
 
 g_cvm	
+*	Could try code below, but for now just use implementation in C.
+
+*	Multiply ia by 10. Branch if overflow. Otherwise do the subtraction, and then branch if
+*	oveflow.
+
+	genop('mov',w0,const(10))
+	genop('mli_')
+	cmp(w0,w0)
+	jump('ne',arg1)
+	genop('subs',ia,wb)
+	jump('jne',arg1)
+							:(opdone)
+
 	genop('mov',w0,const(10))
 	genop('mul',ia,w0)
 	genop('subs',ia,wb)
 	jump('vs',arg1);* jump on overflow
 							:(opdone)
 
-*	8.10 cvd
-*HERE
+*	8.10 CVD
+
 *	Convert by division
 
 *	The integer accumulator, which is zero or negative, is divided by 10.
@@ -3155,19 +3203,7 @@ g_cvm
 
 g_cvd
 
-	genop('sdiv',ia,w0)
-
-*	compute remainder, complement it, and add to code for digit 0.
-
-	genop('mov',w0,const(10))
-	genop('mov',w2,ia);* save ia
-	genop('sdiv',ia,w0);* set ia to quotient
-	genop('mul',w1,w2,ia)
-	genop('sub',w2,w1);* remainder (is negative or zero)
-	genop('orr',w2,w2);* clear w2
-	genop('rsb',w2,w2,w1);* make remainder positive
-	genop('add',wa,w2,const('ch_d0'));* convert to digit code
-							:(opdone)
+	genop('cvd_')					:(opdone)
 
 *	#### 9-	 Block Move Instructions
 
