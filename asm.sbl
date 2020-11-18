@@ -2441,7 +2441,7 @@ g_dvi
 *	Could try code below, but for now just use implementation in C.
 
 	fetch(w0,arg1)
-	genop('dvi_')					:(opdone)
+	genop('bl','dvi_')				:(opdone)
 
 	fetch(w1,arg1)
 	cmp(w1,w1)	
@@ -3177,7 +3177,7 @@ g_cvm
 *	oveflow.
 
 	genop('mov',w0,const(10))
-	genop('mli_')
+	genop('bl','mli_')
 	cmp(w0,w0)
 	jump('ne',arg1)
 	genop('subs',ia,wb)
