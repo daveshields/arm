@@ -579,53 +579,53 @@ syscall_exit:
 
 	.global syspp
 #	.extern	zyspp
-syspp:	syscall	zyspp,28
-	.global	adi_
-adi_:
-	adds	ia,ia,w0
-	movvc	w0,#0			@ signal overflow
-	movvs	w0,#1			@ signal overflow
-	mov	PC,LR
-
-	.global	mli_
-#	mul does not set overflow bit. It just returns low 32 bits of result.
-#	check for overflow by dividing result by argument to see if get same value back
-mli_:
-	syscall	mli__
-	mov	PC,LR
-
-	.global	sbi_
-sbi_:
-	mov	w0,#0			@ assume no overflow
-	subs	ia,ia,w1
-	movvs	w0,#1			@ signal overflow
-	mov	PC,LR
-
-	.global	dvi_
-dvi_:
-	cmp	w1,w1			@ test for divisor zero
-	bne	1f
-	mov	w0,#1			@ signal overflow
-	mov	PC,LR
-1:
-	sdiv	ia,ia,w1
-	mov	w0,#1			@ overflow not possible
-	mov	PC,LR
-
-	.global	rmi_
-rmi_:
-	mov	w0,#0			@ assume no overflow
-	subs	ia,ia,w1
-	movvs	w0,#1			@ signal overflow
-	mov	PC,LR
-
-	.global	ngi_
-ngi_:
-	mov	w0,#0			@ assume no overflow
-	rsbs	ia,ia,#0		@ subtract from zero to negate
-	movvs	w0,#1			@ signal overflow
-	mov	PC,LR
-
+#syspp:	syscall	zyspp,28
+#
+#	.global	adi_
+#adi_:
+#	adds	ia,ia,w0
+#	movvc	w0,#0			@ signal overflow
+#	movvs	w0,#1			@ signal overflow
+#	mov	PC,LR
+#
+#	.global	mli_
+##	mul does not set overflow bit. It just returns low 32 bits of result.
+##	check for overflow by dividing result by argument to see if get same value back
+#mli_:
+#	syscall	mli__
+#	mov	PC,LR
+#
+#	.global	sbi_
+#sbi_:
+#	mov	w0,#0			@ assume no overflow
+#	subs	ia,ia,w1
+#	movvs	w0,#1			@ signal overflow
+#	mov	PC,LR
+#
+#	.global	dvi_
+#dvi_:
+#	cmp	w1,w1			@ test for divisor zero
+#	bne	1f
+#	mov	w0,#1			@ signal overflow
+#	mov	PC,LR
+#1:
+#	sdiv	ia,ia,w1
+#	mov	w0,#1			@ overflow not possible
+#	mov	PC,LR
+#
+#	.global	rmi_
+#rmi_:
+#	mov	w0,#0			@ assume no overflow
+#	subs	ia,ia,w1
+#	movvs	w0,#1			@ signal overflow
+#	mov	PC,LR
+#
+#	.global	ngi_
+#ngi_:
+#	mov	w0,#0			@ assume no overflow
+#	rsbs	ia,ia,#0		@ subtract from zero to negate
+#	movvs	w0,#1			@ signal overflow
+#	mov	PC,LR
 
 	.global sysax
 #	.extern	zysax
@@ -803,15 +803,14 @@ sysxi:
 mli_:
 	syscall mli__,39
 
-dvi_	.global	dvi__
+dvi_:	.global	dvi__
 	syscall	dvi__,40
 	
-rmi_	.global	rmi__
+rmi_:	.global	rmi__
 	syscall	rmi__,42
 	
-cvd_	.global	cvd__
-	syscall	cvd__,43
-	
+cvm_:	.global	cvr__
+	syscall	cvm__,43
 
 
 	.macro	real_op name,proc
