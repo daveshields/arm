@@ -435,8 +435,8 @@ lcw_:
 #	ldr	wa,[wa]
 #	leave			@ return to minimal code
 
-	.global	chk__
-chk__:
+	.global	chk_
+chk_:
 
 #	check stack register to see if room for another 100 words.
 #	return zero if ok, or one if not.

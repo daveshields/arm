@@ -503,7 +503,7 @@ init
 	ia = 'ia'
 	cp = 'cp' 
 
-*	rc holds return code from osint call.
+*	rc holds return code from jsr call. 
 
 	rc = 'rc'
 
@@ -584,6 +584,7 @@ init
 *	respectively, of sections of the code that should not be traced,
 *	usually because they contain a loop instruction that won't
 *	compile if too much trace code is inserted.
+
 	skip_on = table(50)
 	skip_off = table(50)
 
@@ -848,7 +849,6 @@ jump
 
 	lbl = (ident(datatype(iarg),'minarg') text(iarg),iarg)
 	typ = (ident(datatype(iarg),'minarg') type(iarg),6)
-	op = 'mov' 
 	cond = ident(cond) 'al'
 * outfile = 'jump cond  ' cond '  typ <' typ '> lbl <' lbl '>'
 							:($('jump_' typ))
@@ -864,15 +864,14 @@ jump_8
 
 *	w,x, map register name
 
-	genop('bx' cond, lbl)				:(return)
-	genop(op cond, PC, lbl)				:(return)
+	genop('bx' cond, text(iarg))			:(return)
 
 jump_9
 
 *	(x), register indirect
 
 	fetch(w0,iarg)
-	genop(op cond, PC, w0)				:(return)
+	genop('bx' cond,w0)				:(return)
 
 jump_10
 jump_11
@@ -881,7 +880,7 @@ jump_11
 *	-(x), register indirect, pre decrement
 
 	fetch(w0,iarg)	
-	genop(op cond, PC, '[' w0 ']')			:(return)	
+	genop('bx' cond,w0)				:(return)
 
 jump_12
 jump_13
@@ -890,7 +889,7 @@ jump_13
 *	dlbl(x)
 
 	fetch(w0,iarg)
-	genop(op cond, PC, '[' w0 ']')			:(return)
+	genop('bx' cond,w0)				:(return)
 
 jump_err
 jump_1
@@ -1371,7 +1370,7 @@ g_mov_push
 
 g_brn
 
-	jump(,text(arg1))				:(opdone)
+	jump(,arg1)					:(opdone)
 
 *	1.3  BSW  _x,val,plbl_    branch on switch value
 
@@ -1393,14 +1392,13 @@ g_bsw
 	z_suspend = 1
 
 	reg = text(arg1)
-	fetch(w2,arg2)
 	t2 = genlab()
 	eq(type(arg3))					:s(g_bsw1)
 	ident(text(arg3))				:s(g_bsw1)
 
 *	Here if _plbl_, so generate branch to it if out or range
 
-	genop('cmp',reg,w2)
+	genop('cmp',reg,const(text(arg2)))
 * outfile = 'g_bsw ' datatype(arg3)
 	jump('ge',arg3)
 
@@ -1473,7 +1471,6 @@ g_ent.1
 
 g_ent.2
 
-	output_lines = output_lines + 2
 	genopl(thislabel)
 	
 *	here to see if want label made public
@@ -1490,8 +1487,7 @@ g_ent.2
 
 g_bri
 
-	fetch(w1,arg1)
-	jump(,minarg(7,'w1'))				:(opdone)
+	jump(,arg1)					:(opdone)
 
 *	*   1.8	 LEI  _x_	  load entry point identification
 
@@ -1522,10 +1518,10 @@ g_jsr
 	genop('mov',w0,rc)
 	genop('subs',w0,const(1))
 	genop('mov',rc,w0)
-	jump('pl',jsr_label_norm)
+	jump('lt',jsr_label_norm)
 	z_suspend = 0
 
-*	generate branch around for ppms that will follow. Take the branch if normal return (r1==0)
+*	generate branch around for ppms that will follow. Take the branch if normal return (w0==0)
 
 							:(opdone)
 
@@ -1621,8 +1617,7 @@ g_exi
 
 	differ(t2,'n') eq(prc.args)			:s(g_exi.2)
 	t3 = ident(t3) '0'
-	genop('mov',w0,const(t3))
-	genop('mov',rc,w0)
+	genop('mov',rc,const(+t3))
 	ident(t2,'n')					:f(g_exi.2)
 
 g_exi.1
@@ -1683,9 +1678,8 @@ g_ppm.loop.next
 g_ppm.loop
 
 	lab_next = genlab()
-	genop('mov',w0,rc)
-	genop('subs',w0,w0,const(1))
-	jump('lt',lab_next)
+	genop('subs',rc,rc,const(1))
+	jump('ge',lab_next)
 
 	ident(incode,'ppm')				:s(g_ppm.loop.ppm)
 
@@ -1698,8 +1692,7 @@ g_ppm.loop.err
 * outfile = 'ppm.loop  not null <' text(arg1) '>'
 * outfile = 'ppm.loop  type <' type(arg1) '>'
 * outfile = 'ppm.loop  text <' text(arg1) '>'
-	genop('mov',w0,const(text(arg1)))
-	genop('mov',rc,w0)
+	genop('mov',rc,const(text(arg1)))
 	jump(,'err_')
 							:(g_ppm.loop.next)
 g_ppm.loop.ppm
@@ -1731,8 +1724,7 @@ g_erb
 
 *	set rc to error code and branch to error handler
 
-	genop('mov',w0,const(text(arg1)))
-	genop('mov',rc,w0)
+	genop('mov',rc,const(text(arg1)))
 	jump(,'err_')					:(opdone)
 *	real operations
 
@@ -1947,7 +1939,7 @@ g_end.5
 
 g_icv
 
-	isreg(arg1) genop('add',text(arg1),text(arg1),const(1)) :s(opdone)
+	isreg(arg1) genop('add',text(arg1),const(1)) :s(opdone)
 
 	fetch(w1,arg1)
 	genop('add',w1,const(1))			
@@ -1958,6 +1950,8 @@ g_icv
 *	DCV decrements the value of the operand by unity.
 
 g_dcv
+
+	isreg(arg1) genop('sub',text(arg1),const(1)) :s(opdone)
 
 	fetch(w0,arg1)
 	genop('sub',w0,w0,const(1))
@@ -1984,7 +1978,6 @@ g_mnz
 
 	genop('mov',w0,const(1))
 	store(w0,arg1)
-							:(opdone)
 
 *	1.20 SSL   _opw_	  subroutine stack load
 
@@ -2012,12 +2005,10 @@ g_mnz
 
 g_ssl
 g_sss
-g_rtn
 
 	genop()						:(opdone)
 
 *	1.22 RTN define start of routine
-
 
 *	However it is entered by any type of conditional or unconditional
 *	branch (not by JSR).
@@ -2029,6 +2020,9 @@ g_rtn
 
 *	All routines must be named in section 0 INR statements.	 
 
+g_rtn
+							:(opdone)
+
 *	#### 2-	 Operations on One Word Integer Values (addresses)
 
 
@@ -2039,8 +2033,8 @@ g_rtn
 
 g_add
 
-	isreg(arg1)					:s(g_add_reg_other)
-	isreg(arg1) isreg(arg2)				:s(g_add_reg_reg)
+*	isreg(arg1)					:s(g_add_reg_other)
+*	isreg(arg1) isreg(arg2)				:s(g_add_reg_reg)
 * outfile = 'add other other'
 	fetch(w1,arg1)
 	fetch(w2,arg2)
@@ -2056,7 +2050,7 @@ g_add_reg_other
 * outfile = 'add reg other'
 
 	fetch(w1, arg2)	
-	genop('adds',text(arg1),text(arg1),w1)		:(opdone)
+	genop('adds',text(arg1),w1)			:(opdone)
 
 *	2.2	 SUB   _opn,opv_
 
@@ -2064,11 +2058,12 @@ g_add_reg_other
 
 g_sub
 
-	isreg(arg1)					:s(g_sub_reg_other)
-	isreg(arg1) isreg(arg2)				:s(g_sub_reg_reg)
+*	isreg(arg1)					:s(g_sub_reg_other)
+*	isreg(arg1) isreg(arg2)				:s(g_sub_reg_reg)
+
 	fetch(w1,arg1)
 	fetch(w2,arg2)
-	genop('subs',w1,w1,w2)
+	genop('sub',w1,w2)
 	store(w1,arg1)
 							:(opdone)
 
@@ -2079,7 +2074,7 @@ g_sub_reg_reg
 g_sub_reg_other
 
 	fetch(w1,arg2)
-	genop('subs',text(arg1),text(arg1),w2)			:(opdone)
+	genop('sub',text(arg1),w2)			:(opdone)
 
 
 *	2.3	 ICA   _opn_
@@ -2104,8 +2099,8 @@ g_ica_reg
 
 g_dca
 
-	isreg(arg1)					:s(g_dca_reg)
-	fetch(w1,arg1)
+*	isreg(arg1)					:s(g_dca_reg)
+*	fetch(w1,arg1)
 	genop('sub',w1,const('cfp_b'))
 	store(w1,arg1)					:(opdone)
 
@@ -2270,7 +2265,7 @@ g_aov
 	fetch(w2,arg2)
 	genop('adds',w1,w1,w2)
 	store(w1,arg1)
-	jump('cs',arg3)				:(opdone)
+	jump('vs',arg3)				:(opdone)
 o
 *	2.18 BEV   _opn,plbl_
 
@@ -2327,7 +2322,7 @@ g_lcp
 *	3.2	 SCP   _reg_
 
 *	Store code pointer register this instruction loads the current value in the code pointer 
-*	register into reg_ (CP) is unchanged.
+*	register into _reg_ (CP) is unchanged.
 
 g_scp	     
 
@@ -2350,9 +2345,6 @@ g_lcw
 	genop('bl','lcw_')
 	genop('mov',text(arg1),w1);			:(opdone)
 
-	genop('ldr',text(arg1),'[' cp ']')
-	genop('add',cp,cp,const(1))			:(opdone)
-
 *	3.4	 ICP
 
 *	Increment CP  by one word
@@ -2363,7 +2355,6 @@ g_lcw
 g_icp	
 
 	genop('bl','icp_')				:(opdone)
-	genop('add',cp,cp,const(1))			:(opdone)
 
 *	#### 4-	 Operations on Signed Integer Values
 
@@ -2414,9 +2405,6 @@ g_mli
 	genop('movne',w0,const(0))
 	genop('moveq',w0,const(1))
 							:(opdone)
-
-
-
 
 *	4.4	 SBI   _ops_
 
@@ -2761,10 +2749,10 @@ g_plc
 g_psc
 
 	fetch(w1,arg1)
-	eq(type(arg2)) 	genop('eor',w2,w2);* no opv
+	eq(type(arg2)) 	genop('mov',w2,const(0));* no opv
 	ne(type(arg2)) 	fetch(w2,arg2)
 	genop('add',w2,const('cfp_f'))
-	genop('add',w1,w1,w2)			
+	genop('add',w1,w2)			
 	store(w1,arg1)					:(opdone)
 
 *	6.3	 LCH  _reg,opc_
@@ -2773,8 +2761,7 @@ g_psc
 
 g_lch
 
-	fetch(w1,arg2,'char')			
-	store(w1,arg1,'char')
+	fetch(text(arg1),arg2,'char')			
 							:(opdone)
 
 *	6.4	 SCH  _reg,opc_
@@ -2864,23 +2851,33 @@ g_cne
 g_cmc
 
 	loop_lbl = genlab()
+	lt_label = genlab()
+	gt_label = genlab()
 	done_lbl = genlab()
 	
-	genopl(loop_lbl,'nop')
-	fetch(w1,arg_xlp,'char')
-	fetch(w2,arg_xrp,'char')
-	genop('cmp',w1,w2)
-	jump('lt',arg1)
-	jump('gt',arg2)
-	genop('subs',wa,const(1))
-	jump('ne',loop_lbl);* loop back if more characters
+	genopl(loop_lbl)
+		fetch(w1,arg_xlp,'char')
+		fetch(w2,arg_xrp,'char')
+		genop('cmp',w1,w2)
+		jump('lt',lt_label)
+		jump('gt',gt_label1)
+		genop('subs',wa,const(1))
+		jump('ne',loop_lbl);* loop back if more characters
 
-*	Here if same, so clear xl and xr, then fall through to next instruction
+*	Here after loop, clear xl and xr, then take branch if needed
+
+	genop('mov',xl,const(0)); genop('mov',xr,xl)
+	jump(,done_label)
+	
+	genopl(lt_label)
+	genop('mov',xl,const(0)); genop('mov',xr,xl)
+	jump(,arg1)
+	
+	genopl(gt_label)
+	genop('mov',xl,const(0)); genop('mov',xr,xl)
+	jump(,arg2)
 
 	genopl(done_lbl)
-	genop('eor',xl,xl)
-	genop('eor',xr,xr)
-	genopl(gen_lbl)
 							:(opdone)
 
 *	6.9	 TRC
@@ -2904,7 +2901,6 @@ g_cmc
 g_trc
 
 	loop_lbl = genlab()
-	done_lbl = genlab()
 	fetch(w2,arg_xri,'char');*char ptr to translate table
 	
 	genopl(loop_lbl)
@@ -2916,9 +2912,8 @@ g_trc
 	
 *	Here when done, so clear xl and xr, then fall through to next instruction
 
-	genopl(done_lbl)
-	genop('eor',xl,xl)
-	genop('eor',xr,xr)
+	genop('mov',xl,const(0))
+	genop('mov',xr,const(0))
 							:(opdone)
 *	6.10 FLC  _w_
 
@@ -2984,7 +2979,7 @@ g_rsh
 
 	reg = text(arg1)
 	fetch(w1,arg2)
-	genop('and',reg,reg,w1)				:(opdone)
+	genop('lsr',reg,reg,w1)				:(opdone)
 
 *	7.6	 LSH  _w,val_
 
@@ -2992,7 +2987,7 @@ g_rsh
 
 g_lsh
 
-	fetch(w1,arg2)
+	fetch(text(arg1),arg2)
 	genop('lsl',w1,const(text(arg2)))
 	genop('mov',text(arg1),w1)			:(opdone)
 
@@ -3000,11 +2995,18 @@ g_lsh
 
 *	Right shift _w_ by  number of bits in _x_
 
-g_rsx
+*g_rsx
 
-	fetch(w1,arg2)
-	genop('lsr',w1,const(text(arg2)))
-	genop('mov',text(arg1),w1)			:(opdone)
+*	This op is not used in sbl, and is not available in arm, so it's use will cause error.
+
+
+*	7.8	 LSX  _w,(x)_
+
+*	Left shift _w_ by  number of bits in _x_
+
+*g_lsx
+
+*	This op is not used in sbl, and is not available in arm, so it's use will cause error.
 
 
 *	7.9	 NZB  _w,plbl_
@@ -3103,12 +3105,9 @@ g_mfi
 
 *	here if label given, branch if ia not in range (ie, negative)
 
-	genop('mov',ia,w0)
-	genop('orrs',w0,w0)
+	
+	genop('orrs',ia,ia)
 	jump('mi',arg2);* branch if ia negative
-	genop('subs',w0,w0,const('cfp_m'));
-	jump('mi',arg2);* branch if ia greater than cfp_m
-	store(ia,arg1)					:(opdone)
 
 g_mfi.1
 
@@ -3171,17 +3170,17 @@ g_ctb
 *	(IA) undefined. execution of CVM leaves the result in (WB) undefined.
 
 g_cvm	
-*	Could try code below, but for now just use implementation in C.
 
 *	Multiply ia by 10. Branch if overflow. Otherwise do the subtraction, and then branch if
 *	oveflow.
 
 	genop('mov',w0,const(10))
 	genop('mli_')
-	cmp(w0,w0)
+	genop('cmp',w0,w0)
 	jump('ne',arg1)
+	genop('sub',wb,const(ch_d0))
 	genop('subs',ia,wb)
-	jump('jne',arg1)
+	jump('vs',arg1)
 							:(opdone)
 
 	genop('mov',w0,const(10))
@@ -3220,7 +3219,7 @@ g_cvd
 *	Move characters
 
 
-*	Before obeying this order WA,XL ,XR should have been set up, the latter two by PLC PSC resp.
+*	Before obeying this order WA,XL, and XR should have been set up, the latter two by PLC PSC resp.
 *	MVC is equivalent to the sequence
 
 *	```
@@ -3240,16 +3239,14 @@ g_mvc
  
 	z_suspend = 1
 
-	loopc = genlab()
-	fetch(wb,arg_xlp,'char')
-	store(wb,arg_xrp,'char')
 	genop('mov',w3,wb);* save wb
 
-	genopl(loopc)
-		fetch(wb,arg_xrp,'char')
-		store(wb,arg_xlp,'char')
+	loop = genlab()
+		fetch(wb,arg_xlp,'char')
+		store(wb,arg_xrp,'char')
 		genop('subs',wa,const(1))
-		jump('mi',loopc)
+		jump('ne',loop)
+
 	genop('mov',wb,w3);* restore wb
 
 	z_suspend = 0
@@ -3272,7 +3269,7 @@ g_mvc
 
 *	Note that this implies that the value in WA is the length in bytes which is a multiple of CFP$B .
 
-*	The initial addresses in XR,XL are word addresses.
+*	The initial addresses in XR and XL are word addresses.
 
 *	As indicated, the final XR and XL values point past the new and old regions of memory respectively.
 
@@ -3283,12 +3280,11 @@ g_mvw
 
 	z_suspend = 1
 
-	loopw = genlab()
-		genopl(loopw)
+	loop = genlab()
 		fetch(w0,arg_xlp)
 		store(w0,arg_xrp)
 		genop('subs',wa,const('cfp_b'))
-		jump('ne',loopw)
+		jump('ne',loop)
 
 	z_suspend = 0
 							:(opdone)
@@ -3313,12 +3309,13 @@ g_mvw
 
 g_mwb
 
-	loopb = genlab()
-		genopl(loopb)
+	loop = genlab()
 		fetch(w0,arg_mxr)
 		store(w0,arg_mxl)
 		genop('subs',wa,const('cfp_b'))
-		jump('ne',loopb)			:(opdone)
+		jump('ne',loop)			
+
+							:(opdone)
 
 *	9.4	 MCB
 
@@ -3346,17 +3343,16 @@ g_mwb
 g_mcb
 
 
-	loopc = genlab()
-	gen_plc(arg_xl)
-	gen_plc(arg_xr)
-	genop('mov',w3,wb);* save wb
-	genopl(loopc)
+	genop('mov',w3,wb);*save wb
+
+	loop = genlab()
 		fetch(wb,arg_mxl,'char')
 		store(wb,arg_mxr,'char')
 		genop('subs',wa,const(1))
-		jump('mi',loopc)
+		jump('ne',loop)
+
 	genop('mov',wb,w3);* restore wb
-	fetch(wb,'dumpb')
+							:(opdone)
 
 *	#### 10- Operations Connected with the Stack
 
@@ -3388,12 +3384,6 @@ g_chk
 	genop('cmp',w0,w0)
 	jump('ne',minarg(6,'sec06'))			:(opdone)
 
-*	old code (it wrongly accesses lowspmin from sbl.s)
-
-*	jump('lo',minard(
-*	fetch(w0,minarg(3,'lowspmin'))
-*	genop('cmp',xs,w0)
-*	jump('ne',minarg(6,'sec06'))			:(opdone)
 
 *	#### 11- Data Generation Instructions
 
@@ -3453,7 +3443,6 @@ g_dtc
 
 *	change first and last chars to " (assume / used in source)
 
-* output = 'g_d'
 	t1 = text(arg1)
 	t1 tab(1) rtab(1) . t2
 	t3 = remdr(size(t2),cfp_c)
@@ -3476,7 +3465,7 @@ g_dtc.1
 
 *	align to word boundary
 
-	genop('.align',2)
+*	genop('.align',2)
 							:(opdone)
 *	11.5 DBC  _val
 
@@ -3518,7 +3507,7 @@ g_equ
 
 *	Define external procedure
 
-*	_xp_ defines the symbol appearing in the label field to be the name of an external 
+*	_exp_ defines the symbol appearing in the label field to be the name of an external 
 *	procedure which can be referenced in a subsequent JSR instruction.
 
 *	The coding for the procedure is external to the coding of the source program in this language.
