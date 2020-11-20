@@ -2391,7 +2391,7 @@ g_mli
 *	Could try code below, but for now just use implementation in C.
 
 	fetch(w0,arg1)
-	genop('mli_')					:(opdone)
+	genop('bl','mli_')					:(opdone)
 
 *	arm multiply does not set overflow bit, so do 32 by 32 multiply and see if high-order
 *	word in all ones or all zeros, in which case the result is correct. Otherwise oveflow occurred.
@@ -2429,7 +2429,7 @@ g_dvi
 *	Could try code below, but for now just use implementation in C.
 
 	fetch(w0,arg1)
-	genop('dvi_')					:(opdone)
+	genop('bl','dvi_')				:(opdone)
 
 	fetch(w1,arg1)
 	cmp(w1,w1)	
@@ -3183,11 +3183,6 @@ g_cvm
 	jump('vs',arg1)
 							:(opdone)
 
-	genop('mov',w0,const(10))
-	genop('mul',ia,w0)
-	genop('subs',ia,wb)
-	jump('vs',arg1);* jump on overflow
-							:(opdone)
 
 *	8.10 CVD
 
@@ -3202,7 +3197,7 @@ g_cvm
 
 g_cvd
 
-	genop('cvd_')					:(opdone)
+	genop('bl','cvd_')				:(opdone)
 
 *	#### 9-	 Block Move Instructions
 

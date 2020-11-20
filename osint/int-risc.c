@@ -30,7 +30,7 @@ int dvi__(int arg)
 {
 	if (arg == 0)	return EXIT_1;
 	reg_ia /= arg;
-	return EXIT_0;
+	return NORMAL_RETURN;
 }
 
 /*
@@ -40,7 +40,7 @@ int rmi__(int arg)
 {
 	if (arg == 0)	return EXIT_1;
 	reg_ia %= arg;
-	return EXIT_0;
+	return NORMAL_RETURN;
 }
 
 /*
@@ -48,15 +48,15 @@ int rmi__(int arg)
  */
 int mli__(int arg)
 {
-	int save_arg;
+	int save_ia;
 
-	save_ia = ia;
+	save_ia = reg_ia;
 	reg_ia *= arg;
-	if (reg_ia == 0) return EXIT_0;
+	if (reg_ia == 0) return NORMAL_RETURN;
 	/* check for overflow by seeing that result divided by original value of ia is arg. */
 	/* original value of ia cannot be zero since result was not zero. */
 	if(reg_ia / save_ia != arg) return EXIT_1;
-	return EXIT_0;
+	return NORMAL_RETURN;
 }
 
 
