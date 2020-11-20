@@ -200,6 +200,11 @@ extern	int			zystt ( void );
 extern	int			zysul ( void );
 extern	int			zysxi ( void );
 
+extern	int	mli__(int);
+extern	int	dvi__(int);
+extern	int	rmi__(int);
+extern	int	cvd__(int);
+
 // prototypes for standard system-level functions used by OSINT
 
 #include <unistd.h>

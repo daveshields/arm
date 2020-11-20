@@ -575,57 +575,11 @@ syscall_exit:
 	ldr	w1,[w1]
 	bx      w1			@ load return address from caller and branch to it
 
-#	operations on the integer accumulator
 
 	.global syspp
 #	.extern	zyspp
 #syspp:	syscall	zyspp,28
-#
-#	.global	adi_
-#adi_:
-#	adds	ia,ia,w0
-#	movvc	w0,#0			@ signal overflow
-#	movvs	w0,#1			@ signal overflow
-#	mov	PC,LR
-#
-#	.global	mli_
-##	mul does not set overflow bit. It just returns low 32 bits of result.
-##	check for overflow by dividing result by argument to see if get same value back
-#mli_:
-#	syscall	mli__
-#	mov	PC,LR
-#
-#	.global	sbi_
-#sbi_:
-#	mov	w0,#0			@ assume no overflow
-#	subs	ia,ia,w1
-#	movvs	w0,#1			@ signal overflow
-#	mov	PC,LR
-#
-#	.global	dvi_
-#dvi_:
-#	cmp	w1,w1			@ test for divisor zero
-#	bne	1f
-#	mov	w0,#1			@ signal overflow
-#	mov	PC,LR
-#1:
-#	sdiv	ia,ia,w1
-#	mov	w0,#1			@ overflow not possible
-#	mov	PC,LR
-#
-#	.global	rmi_
-#rmi_:
-#	mov	w0,#0			@ assume no overflow
-#	subs	ia,ia,w1
-#	movvs	w0,#1			@ signal overflow
-#	mov	PC,LR
-#
-#	.global	ngi_
-#ngi_:
-#	mov	w0,#0			@ assume no overflow
-#	rsbs	ia,ia,#0		@ subtract from zero to negate
-#	movvs	w0,#1			@ signal overflow
-#	mov	PC,LR
+
 
 	.global sysax
 #	.extern	zysax
@@ -799,19 +753,18 @@ sysxi:
 	str	xs,[w1]
 	syscall	zysxi,38
 
-	.global	mli__
+	.global	mli_
 mli_:
 	syscall mli__,39
 
-dvi_:	.global	dvi__
+dvi_:	.global	dvi_
 	syscall	dvi__,40
 	
-rmi_:	.global	rmi__
+rmi_:	.global	rmi_
 	syscall	rmi__,42
 	
-cvm_:	.global	cvr__
-	syscall	cvm__,43
-
+cvd_:	.global	cvd_
+	syscall	cvd__,43
 
 	.macro	real_op name,proc
 	.global	\name
@@ -884,6 +837,115 @@ get_fp:
 #	scstr is offset to start of string in scblk, or two words
 
 	.set	scstr,cfp_c+cfp_c
+
+save_cp_:	.word	save_cp
+save_xl_:	.word	save_xl
+save_xr_:	.word	save_xr
+save_xs_:	.word	save_xs
+save_wa_:	.word	save_wa
+save_wb_:	.word	save_wb
+save_ia_:	.word	save_ia
+save_wc_:	.word	save_wc
+save_w0_:	.word	save_w0
+
+
+#	address of global variables, where suffix '_' gives address of a variable
+
+calltab_:	.word	calltab
+
+stacksiz_:	.word	stacksiz
+lowspmin_:	.word	lowspmin
+stbas_:		.word	stbas
+statb_:		.word	statb
+stage_:		.word	stage
+gbcnt_:		.word	gbcnt
+lmodstk_:	.word	lmodstk
+startbrk_:	.word	startbrk
+outptr_:	.word	outptr
+swcoup_:	.word	swcoup
+timsx_:		.word	timsx
+
+reg_block_:	.word	reg_block
+reg_w0_:	.word	reg_w0
+reg_wa_:	.word	reg_wa
+reg_wb_:	.word	reg_wb
+reg_ia_:	.word	reg_ia
+reg_wc_:	.word	reg_wc
+reg_xr_:	.word	reg_xr
+reg_xl_:	.word	reg_xl
+reg_cp_:	.word	reg_cp
+reg_ra_:	.word	reg_ra
+reg_pc_:	.word	reg_pc
+reg_xs_:	.word	reg_xs
+
+reg_size_:	.word	reg_size
+
+reg_rp_:	.word	reg_rp
+
+ten_:	.word	ten
+inf_:	.word	inf
+reg_fl_:	.word	reg_fl
+#sav_block_:	.word	sav_block
+id1_:	.word	id1
+id2blk_:	.word	id2blk
+id1blk_:	.word	id1blk
+ticblk_:	.word	ticblk
+tscblk_:	.word	tscblk
+inpbuf_:	.word	inpbuf
+ttybuf_:	.word	ttybuf
+minimal_id_:	.word	minimal_id
+osisp_:		.word	osisp
+compsp_:	.word	compsp
+
+ppoff_:		.word	ppoff
+pool0_:		.word	pool0
+#	operations on the integer accumulator
+#
+#	.global	adi_
+#adi_:
+#	adds	ia,ia,w0
+#	movvc	w0,#0			@ signal overflow
+#	movvs	w0,#1			@ signal overflow
+#	mov	PC,LR
+#
+#	.global	mli_
+##	mul does not set overflow bit. It just returns low 32 bits of result.
+##	check for overflow by dividing result by argument to see if get same value back
+#mli_:
+#	syscall	mli__
+#	mov	PC,LR
+#
+#	.global	sbi_
+#sbi_:
+#	mov	w0,#0			@ assume no overflow
+#	subs	ia,ia,w1
+#	movvs	w0,#1			@ signal overflow
+#	mov	PC,LR
+#
+#	.global	dvi_
+#dvi_:
+#	cmp	w1,w1			@ test for divisor zero
+#	bne	1f
+#	mov	w0,#1			@ signal overflow
+#	mov	PC,LR
+#1:
+#	sdiv	ia,ia,w1
+#	mov	w0,#1			@ overflow not possible
+#	mov	PC,LR
+#
+#	.global	rmi_
+#rmi_:
+#	mov	w0,#0			@ assume no overflow
+#	subs	ia,ia,w1
+#	movvs	w0,#1			@ signal overflow
+#	mov	PC,LR
+#
+#	.global	ngi_
+#ngi_:
+#	mov	w0,#0			@ assume no overflow
+#	rsbs	ia,ia,#0		@ subtract from zero to negate
+#	movvs	w0,#1			@ signal overflow
+#	mov	PC,LR
 
 #
 	.if	0
@@ -1045,64 +1107,3 @@ re4:	ldr	w1,stbas_
 #	popf
 #	mov	PC,lr
 #%endif
-save_cp_:	.word	save_cp
-save_xl_:	.word	save_xl
-save_xr_:	.word	save_xr
-save_xs_:	.word	save_xs
-save_wa_:	.word	save_wa
-save_wb_:	.word	save_wb
-save_ia_:	.word	save_ia
-save_wc_:	.word	save_wc
-save_w0_:	.word	save_w0
-
-
-#	address of global variables, where suffix '_' gives address of a variable
-
-calltab_:	.word	calltab
-
-stacksiz_:	.word	stacksiz
-lowspmin_:	.word	lowspmin
-stbas_:		.word	stbas
-statb_:		.word	statb
-stage_:		.word	stage
-gbcnt_:		.word	gbcnt
-lmodstk_:	.word	lmodstk
-startbrk_:	.word	startbrk
-outptr_:	.word	outptr
-swcoup_:	.word	swcoup
-timsx_:		.word	timsx
-
-reg_block_:	.word	reg_block
-reg_w0_:	.word	reg_w0
-reg_wa_:	.word	reg_wa
-reg_wb_:	.word	reg_wb
-reg_ia_:	.word	reg_ia
-reg_wc_:	.word	reg_wc
-reg_xr_:	.word	reg_xr
-reg_xl_:	.word	reg_xl
-reg_cp_:	.word	reg_cp
-reg_ra_:	.word	reg_ra
-reg_pc_:	.word	reg_pc
-reg_xs_:	.word	reg_xs
-
-reg_size_:	.word	reg_size
-
-reg_rp_:	.word	reg_rp
-
-ten_:	.word	ten
-inf_:	.word	inf
-reg_fl_:	.word	reg_fl
-#sav_block_:	.word	sav_block
-id1_:	.word	id1
-id2blk_:	.word	id2blk
-id1blk_:	.word	id1blk
-ticblk_:	.word	ticblk
-tscblk_:	.word	tscblk
-inpbuf_:	.word	inpbuf
-ttybuf_:	.word	ttybuf
-minimal_id_:	.word	minimal_id
-osisp_:		.word	osisp
-compsp_:	.word	compsp
-
-ppoff_:		.word	ppoff
-pool0_:		.word	pool0
