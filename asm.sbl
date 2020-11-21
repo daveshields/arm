@@ -2264,8 +2264,9 @@ g_aov
 	fetch(w1,arg1)
 	fetch(w2,arg2)
 	genop('adds',w1,w1,w2)
+	jump('vs',arg3)				
 	store(w1,arg1)
-	jump('vs',arg3)				:(opdone)
+						:(opdone)
 o
 *	2.18 BEV   _opn,plbl_
 
@@ -2761,7 +2762,10 @@ g_psc
 
 g_lch
 
-	fetch(text(arg1),arg2,'char')			
+*	cannot do just one fetch in case target is register
+*	and source is indirect reference  of the register)
+	fetch(w0,arg2,'char')
+	genop('mov',text(arg1),w0)
 							:(opdone)
 
 *	6.4	 SCH  _reg,opc_
@@ -2773,7 +2777,7 @@ g_lch
 
 g_sch
 
-	store(text(arg1),arg2,'char')			:(opdone)
+	store(text(arg1),arg2)				:(opdone)
 
 *	6.5	 CSC  _x_
 
@@ -2850,34 +2854,23 @@ g_cne
 
 g_cmc
 
-	loop_lbl = genlab()
-	lt_label = genlab()
-	gt_label = genlab()
-	done_lbl = genlab()
+	loop = genlab()
 	
-	genopl(loop_lbl)
+	genopl(loop)
 		fetch(w1,arg_xlp,'char')
 		fetch(w2,arg_xrp,'char')
 		genop('cmp',w1,w2)
-		jump('lt',lt_label)
-		jump('gt',gt_label1)
+		genop('movne',xl,const(0))
+		genop('movne',xr,const(0))
+		jump('lt',arg1)
+		jump('gt',arg2)
 		genop('subs',wa,const(1))
-		jump('ne',loop_lbl);* loop back if more characters
+		jump('ne',loop);* loop back if more characters
 
 *	Here after loop, clear xl and xr, then take branch if needed
 
-	genop('mov',xl,const(0)); genop('mov',xr,xl)
-	jump(,done_label)
-	
-	genopl(lt_label)
-	genop('mov',xl,const(0)); genop('mov',xr,xl)
-	jump(,arg1)
-	
-	genopl(gt_label)
-	genop('mov',xl,const(0)); genop('mov',xr,xl)
-	jump(,arg2)
-
-	genopl(done_lbl)
+	genop('mov',xl,const(0));
+	genop('mov',xr,xl)
 							:(opdone)
 
 *	6.9	 TRC
@@ -3175,7 +3168,7 @@ g_cvm
 *	oveflow.
 
 	genop('mov',w0,const(10))
-	genop('mli_')
+	genop('bl','mli_')
 	genop('cmp',w0,w0)
 	jump('ne',arg1)
 	genop('sub',wb,const(ch_d0))
@@ -3237,6 +3230,7 @@ g_mvc
 	genop('mov',w3,wb);* save wb
 
 	loop = genlab()
+	genopl(loop)
 		fetch(wb,arg_xlp,'char')
 		store(wb,arg_xrp,'char')
 		genop('subs',wa,const(1))
@@ -3276,6 +3270,7 @@ g_mvw
 	z_suspend = 1
 
 	loop = genlab()
+	genopl(loop)
 		fetch(w0,arg_xlp)
 		store(w0,arg_xrp)
 		genop('subs',wa,const('cfp_b'))
@@ -3305,6 +3300,7 @@ g_mvw
 g_mwb
 
 	loop = genlab()
+	genopl(loop)
 		fetch(w0,arg_mxr)
 		store(w0,arg_mxl)
 		genop('subs',wa,const('cfp_b'))
@@ -3341,6 +3337,7 @@ g_mcb
 	genop('mov',w3,wb);*save wb
 
 	loop = genlab()
+	genopl(loop)
 		fetch(wb,arg_mxl,'char')
 		store(wb,arg_mxr,'char')
 		genop('subs',wa,const(1))
@@ -3375,7 +3372,7 @@ g_chk
 *	call interface procedure. It returns 0 if not stack space remains, or
 *	one if no space remains.
 
-	genop('chk_')	
+	genop('bl','chk_')	
 	genop('cmp',w0,w0)
 	jump('ne',minarg(6,'sec06'))			:(opdone)
 
