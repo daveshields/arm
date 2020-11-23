@@ -1728,211 +1728,6 @@ g_erb
 	jump(,'err_')					:(opdone)
 *	real operations
 
-*	lch requires separate cases for each first operand possibility.
-
-*	*   7.8	 LSX  _w,(x)_
-
-*	Left shift _w_ by the  number of bits in _x_
-
-
-*	The above shifts are logical shifts in which bits shifted out are lost
-*	and zero bits supplied as required. The shift count is in the
-*	range 0-CFP$N .
-
-g_lsx
-
-	error('lsx not supported')
-
-g_zzz
-
-
-	genop('zzz',text(arg1))				:(opdone)
-
-
-*	*   8.7	 CTW  _w,val_
-
-*	This instruction computes the sum (number of words required to store 
-*	w characters) + (val). the sum is stored in _w_.
-
-*	For example, CFP$C is 5, and WA contains 32, then CTW WA,2
-*	gives a result of 9 in WA.
-
-
-g_ctw
-
-*	assume cfp_c chars per word
-
-	fetch(w1,arg1)
-	genop('add',w1,const('(cfp_c - 1) + cfp_c *' text(arg2)))
-	genop('lsr',w1,w1,const('log_cfp_c'))
-							:(opdone)
-g_sec
-
-	genop('')
-	sectnow = sectnow + 1				:($("g_sec." sectnow))
-
-*  procedure declaration section
-
-g_sec.1
-
-	genop('.global','sec01')
-	genopl('sec01')					:(opdone)
-
-*	definitions section
-
-g_sec.2
-
-	genop('.global','sec02')
-	genopl('sec02')					:(opdone)
-
-*  constants section
-
-g_sec.3
-
-	genop('.global','sec03')
-	genopl('sec03')					
-	genop('.data')
-							:(opdone)
-
-*  working variables section
-
-g_sec.4
-
-	genop('.global','esec03')
-	genopl('esec03')
-
-	genop('.global','sec04')
-	genopl('sec04')					
-
-							:(opdone)
-
-*	here at start of program section.  If any n type procedures, put out entry-word block
-*	declaration at end of working storage
-
-g_sec.5
-
-*	emit code to indicate in code section.
-
-	genop('.global','esec04')
-	genopl('esec04')
-
-	pooladd('prc_')
-	genopl('prc_')
-	genop('.rept' tab prc.count1)
-	genop('.word' tab '0')
-	genop('.endr')
-
-	genop('.global','end_min_data')
-	genopl('end_min_data')
-	genop('.global','sec05')
-	genopl('sec05')					
-
-	genop('.text')
-							:(opdone)
-
-*	stack overflow section.	 output exit__n tail code
-
-g_sec.6
-
-	genop('.global','sec06')
-	genopl('sec06')
-							:(opdone)
-
-*	error section.	produce code to receive erb's
-
-g_sec.7
-
-	genop('.global','sec07')
-	genopl('sec07')
-	flush()
-*	error section.	produce code to receive erb's
-
-*	allow for some extra cases in case of max.err bad estimate
-
-	n1 = max.err + 8
-*	output = '  max.err ' max.err
-	genopl('err_')
-	genop('mov',w0,wa);* set up to exchange wa and rc
-	genop('mov',w0,rc)
-	genop('mov',rc,wa)
-	genop('mov',wa,w0)				:(opdone)
-
-
-
-opdone
-
-	flush()						:(opnext)
-
-g_end
-
-*	&dump = 3
-	&dump = 0
-	ident(havehdr)					:s(g_end.2)
-
-*	here to copy remaining part from hdr file
-
-g_end.1
-
-	line = hdrfile					:f(g_end.2)
-	output_lines = output_lines + 1
-	outfile = line					:(g_end.1)
-
-g_end.2
-
-*	copy out any entries in dacops
-
-	i = 0
-g_end.3
-
-	gt(i = i + 1,dacops.n)				:s(g_end.4)
-	lbl = 'd_' lpad(i,4,'0')
-	outfile =  lbl ':' tab '.word' tab dacops<i>
-							:(g_end.3)
-*	genopl(lbl)
-*	genop('.word',dacops[i])			:(g_end.3)
-
-g_end.4
-
-*	here at end of code generation.
-
-*	write out pool table entries
-
-	s = sort(pooltable,2)
-	i = 0
-	outfile = tab	'.global' tab 'pool0'
-	outfile = 'pool0:'
-	output_lines = output_lines + 2
-
-g_end.5
-	
-	outfile = tab	'.word'  tab s[i = i + 1,1] tab '@ ' i - 1
-*	genop('.word',s[i = i + 1, 1])
-	output_lines = output_lines + 1
-	lt(i,pooltablen)				:s(g_end.5)
-
-	&code	= ne(nerrors) 2001
-	report(input_lines,	'input lines read')
-	report(nstmts,		'mininal statements processed')
-	report(output_lines,	'output code lines produced')
-	report(&stcount,	'spitbol statements executed')
-	report(max.err,		'maximum err/erb number')
-	report(prc.count1,	'prc count')
-	report(pooltablen,	'pool table entries')
-	report(dacops.n,	'dac cfp*d_lbl entries')
-	output	= '  ' gt(prc.count,prc.count1)
-.	  '  differing counts for n-procedures:'
-.	  ' inp ' prc.count1 ' prc ' prc.count
-	differ(nerrors) report(nerrors,'errors detected')
-
-	endfile(1)
-	endfile(2)
-	endfile(3)
-
-	errfile = '* ' max.err ' maximum err/erb number'
-	errfile	= '* ' prc.count ' prc count'
-.		differ(lasterror) '  the last error was in line ' lasterror
-
-							:(end)
 *	1.16 ICV   _opn_  increment value by one
 
 *	ICV increments the value of the operand by unity.
@@ -2076,9 +1871,7 @@ g_sub_reg_other
 	fetch(w1,arg2)
 	genop('sub',text(arg1),w2)			:(opdone)
 
-
 *	2.3	 ICA   _opn_
-
 
 *	Increment address in  _opn_ *	Equivalent to ADD  _opn_,*unity
 
@@ -2440,9 +2233,7 @@ g_dvi
 	genop('movne',w0,const(0))
 							:(opdone)
 
-
 *	4.6	 RMI   _ops_
-
 
 g_rmi
 
@@ -2992,14 +2783,22 @@ g_lsh
 
 *	This op is not used in sbl, and is not available in arm, so it's use will cause error.
 
+	error('rsx not supported')			:(opdone)
 
-*	7.8	 LSX  _w,(x)_
-
-*	Left shift _w_ by  number of bits in _x_
-
-*g_lsx
 
 *	This op is not used in sbl, and is not available in arm, so it's use will cause error.
+
+*	*   7.8	 LSX  _w,(x)_
+
+*	Left shift _w_ by the  number of bits in _x_
+
+*	The above shifts are logical shifts in which bits shifted out are lost
+*	and zero bits supplied as required. The shift count is in the
+*	range 0-CFP$N .
+
+g_lsx
+
+	error('lsx not supported')
 
 
 *	7.9	 NZB  _w,plbl_
@@ -3115,7 +2914,6 @@ g_mfi.1
 
 g_itr
 
- :(opdone)
 	error('g_itr real arithmetic not supported')	:(opdone)
 
 *	8.6	 RTI  _plbl_
@@ -3131,13 +2929,30 @@ g_itr
 
 g_rti
 
- :(opdone)
-	error('g_rti real arithmetic not supported')	:(opdone)
+	error('g_rti real arithmetic not supported')	:	(opdone)
 
 *	here if label given, branch if real too large
 
 	genop('jc',getarg(arg1))				:(opdone)
 
+
+*	*   8.7	 CTW  _w,val_
+
+*	This instruction computes the sum (number of words required to store 
+*	w characters) + (val). the sum is stored in _w_.
+
+*	For example, CFP$C is 5, and WA contains 32, then CTW WA,2
+*	gives a result of 9 in WA.
+
+
+g_ctw
+
+*	assume cfp_c chars per word
+
+	fetch(w1,arg1)
+	genop('add',w1,const('(cfp_c - 1) + cfp_c *' text(arg2)))
+	genop('lsr',w1,w1,const('log_cfp_c'))
+							:(opdone)
 *	8.8	 CTB  _w,val_
 
 *	CTB is exactly like CTW except that the result is in bytes.
@@ -3585,4 +3400,179 @@ g_ejc							:(opdone)
 
 g_ttl							:(opdone)
 
+*	*  14.1  SEC
+
+g_sec
+
+	genop('')
+	sectnow = sectnow + 1				:($("g_sec." sectnow))
+
+*  procedure declaration section
+
+g_sec.1
+
+	genop('.global','sec01')
+	genopl('sec01')					:(opdone)
+
+*	definitions section
+
+g_sec.2
+
+	genop('.global','sec02')
+	genopl('sec02')					:(opdone)
+
+*  constants section
+
+g_sec.3
+
+	genop('.global','sec03')
+	genopl('sec03')					
+	genop('.data')
+							:(opdone)
+
+*  working variables section
+
+g_sec.4
+
+	genop('.global','esec03')
+	genopl('esec03')
+
+	genop('.global','sec04')
+	genopl('sec04')					
+
+							:(opdone)
+
+*	here at start of program section.  If any n type procedures, put out entry-word block
+*	declaration at end of working storage
+
+g_sec.5
+
+*	emit code to indicate in code section.
+
+	genop('.global','esec04')
+	genopl('esec04')
+
+	pooladd('prc_')
+	genopl('prc_')
+	genop('.rept' tab prc.count1)
+	genop('.word' tab '0')
+	genop('.endr')
+
+	genop('.global','end_min_data')
+	genopl('end_min_data')
+	genop('.global','sec05')
+	genopl('sec05')					
+
+	genop('.text')
+							:(opdone)
+
+*	stack overflow section.	 output exit__n tail code
+
+g_sec.6
+
+	genop('.global','sec06')
+	genopl('sec06')
+							:(opdone)
+
+*	error section.	produce code to receive erb's
+
+g_sec.7
+
+	genop('.global','sec07')
+	genopl('sec07')
+	flush()
+*	error section.	produce code to receive erb's
+
+*	allow for some extra cases in case of max.err bad estimate
+
+	n1 = max.err + 8
+*	output = '  max.err ' max.err
+	genopl('err_')
+	genop('mov',w0,wa);* set up to exchange wa and rc
+	genop('mov',w0,rc)
+	genop('mov',rc,wa)
+	genop('mov',wa,w0)				:(opdone)
+
+
+*	*  14.2  END
+
+opdone
+
+	flush()						:(opnext)
+
+g_zzz
+
+
+	genop('zzz',text(arg1))				:(opdone)
+
+g_end
+
+*	&dump = 3
+	&dump = 0
+	ident(havehdr)					:s(g_end.2)
+
+*	here to copy remaining part from hdr file
+
+g_end.1
+
+	line = hdrfile					:f(g_end.2)
+	output_lines = output_lines + 1
+	outfile = line					:(g_end.1)
+
+g_end.2
+
+*	copy out any entries in dacops
+
+	i = 0
+g_end.3
+
+	gt(i = i + 1,dacops.n)				:s(g_end.4)
+	lbl = 'd_' lpad(i,4,'0')
+	outfile =  lbl ':' tab '.word' tab dacops<i>
+							:(g_end.3)
+*	genopl(lbl)
+*	genop('.word',dacops[i])			:(g_end.3)
+
+g_end.4
+
+*	here at end of code generation.
+
+*	write out pool table entries
+
+	s = sort(pooltable,2)
+	i = 0
+	outfile = tab	'.global' tab 'pool0'
+	outfile = 'pool0:'
+	output_lines = output_lines + 2
+
+g_end.5
+	
+	outfile = tab	'.word'  tab s[i = i + 1,1] tab '@ ' i - 1
+*	genop('.word',s[i = i + 1, 1])
+	output_lines = output_lines + 1
+	lt(i,pooltablen)				:s(g_end.5)
+
+	&code	= ne(nerrors) 2001
+	report(input_lines,	'input lines read')
+	report(nstmts,		'mininal statements processed')
+	report(output_lines,	'output code lines produced')
+	report(&stcount,	'spitbol statements executed')
+	report(max.err,		'maximum err/erb number')
+	report(prc.count1,	'prc count')
+	report(pooltablen,	'pool table entries')
+	report(dacops.n,	'dac cfp*d_lbl entries')
+	output	= '  ' gt(prc.count,prc.count1)
+.	  '  differing counts for n-procedures:'
+.	  ' inp ' prc.count1 ' prc ' prc.count
+	differ(nerrors) report(nerrors,'errors detected')
+
+	endfile(1)
+	endfile(2)
+	endfile(3)
+
+	errfile = '* ' max.err ' maximum err/erb number'
+	errfile	= '* ' prc.count ' prc count'
+.		differ(lasterror) '  the last error was in line ' lasterror
+
+							:(end)
 end
