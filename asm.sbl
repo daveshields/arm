@@ -2263,9 +2263,9 @@ g_aov
 
 	fetch(w1,arg1)
 	fetch(w2,arg2)
-	genop('adds',w1,w1,w2)
-	jump('vs',arg3)				
-	store(w1,arg1)
+	genop('adds',w2,w1,w2)
+	jump('cs',arg3)				
+	store(w2,arg2)
 						:(opdone)
 o
 *	2.18 BEV   _opn,plbl_
@@ -2777,7 +2777,7 @@ g_lch
 
 g_sch
 
-	store(text(arg1),arg2)				:(opdone)
+	store(text(arg1),arg2,'char')			:(opdone)
 
 *	6.5	 CSC  _x_
 
@@ -3227,6 +3227,10 @@ g_mvc
  
 	z_suspend = 1
 
+	done_label = genlab()
+	genop('cmp',wa,wa)
+	jump('eq', done_label)
+
 	genop('mov',w3,wb);* save wb
 
 	loop = genlab()
@@ -3237,6 +3241,7 @@ g_mvc
 		jump('ne',loop)
 
 	genop('mov',wb,w3);* restore wb
+	genopl(done_label)
 
 	z_suspend = 0
 							:(opdone)
@@ -3269,12 +3274,18 @@ g_mvw
 
 	z_suspend = 1
 
+	done_label = genlab()
+	genop('cmp',wa,wa)
+	jump('eq',done_label)
+
 	loop = genlab()
 	genopl(loop)
 		fetch(w0,arg_xlp)
 		store(w0,arg_xrp)
 		genop('subs',wa,const('cfp_b'))
 		jump('ne',loop)
+
+	genopl(done_label)
 
 	z_suspend = 0
 							:(opdone)
@@ -3299,6 +3310,10 @@ g_mvw
 
 g_mwb
 
+	done_label = genlab()
+	genop('cmp',wa,wa)
+	jump('eq',done_label)
+
 	loop = genlab()
 	genopl(loop)
 		fetch(w0,arg_mxr)
@@ -3306,6 +3321,7 @@ g_mwb
 		genop('subs',wa,const('cfp_b'))
 		jump('ne',loop)			
 
+	genopl(done_label)
 							:(opdone)
 
 *	9.4	 MCB
@@ -3333,6 +3349,10 @@ g_mwb
 
 g_mcb
 
+	done_label = genlab()
+
+	genop('cmp',wa,wa)
+	jump('eq',done_label)
 
 	genop('mov',w3,wb);*save wb
 
@@ -3344,6 +3364,7 @@ g_mcb
 		jump('ne',loop)
 
 	genop('mov',wb,w3);* restore wb
+	genopl(done_label)
 							:(opdone)
 
 *	#### 10- Operations Connected with the Stack
