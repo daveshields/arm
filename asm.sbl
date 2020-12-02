@@ -312,9 +312,7 @@ fetch_15
 	text(iarg) break('(') . offset '(' len(2) . base
 	pooladd(offset)
 	genop('ldr',w1,'[pr,' const(offset '_') ']')
-	genop('ldr',w2,'[' base ']')
-	genop('lsl',w2,w2,const(2))
-	genop('add',w1,w2)
+	genop('add',w1,base)
 	genop(op,reg,'[w1]')					:(return)
 
 fetch_18
@@ -1190,9 +1188,7 @@ store_15
 	text(iarg) break('(') . offset '(' len(2) . base
 	pooladd(offset)
 	genop('ldr',w1,'[pr,' const(offset '_') ']')
-	genop('ldr',w2,'[' base ']')
-	genop('lsl',w2,w2,const(2))
-	genop('add',w1,w2)
+	genop('add',w1,base)
 	genop(op,reg,'[w1]')					:(return)
 
 store_18
@@ -1893,8 +1889,8 @@ g_ica_reg
 
 g_dca
 
-*	isreg(arg1)					:s(g_dca_reg)
-*	fetch(w1,arg1)
+	isreg(arg1)					:s(g_dca_reg)
+	fetch(w1,arg1)
 	genop('sub',w1,const('cfp_b'))
 	store(w1,arg1)					:(opdone)
 
@@ -1994,13 +1990,13 @@ g_bop
 g_bnz
 
 	fetch(w1,arg1)
-	genop('cmp',w1,w1)
+	genop('cmp',w1,const(0))
 	jump('ne',arg2)					:(opdone)
 
 g_bze	
 
 	fetch(w1,arg1)
-	genop('cmp',w1,w1)
+	genop('cmp',w1,const(0))
 	jump('eq',arg2)					:(opdone)
 
 *	2.15 LCT  _w,opv_
@@ -2270,7 +2266,7 @@ g_ngi
 
 g_ino
 
-	genop('cmp',w0,w0)		
+	genop('cmp',w0,const(0))		
 	jump('eq',arg1)					:(opdone)
 
 *	Jump to _plbl_ if integer overflow
@@ -2285,7 +2281,7 @@ g_ino
 
 g_iov
 
-	genop('cmp',w0,w0)
+	genop('cmp',w0,const(0))
 	jump('ne',arg1)					:(opdone)
 
 *	4.11 IEQ  _plbl_
@@ -2328,7 +2324,7 @@ g_ine	cond = 'ne'					:(g_ia)
 
 g_ia
 
-	genop('cmp',ia,ia)
+	genop('cmp',ia,const(0))
 	jump(cond,arg1)					:(opdone)
 
 
@@ -2809,7 +2805,7 @@ g_lsx
 g_nzb	
 	
 	reg = text(arg1)
-	genop('cmp',reg,reg)
+	genop('cmp',reg,const(0))
 	jump('ne',arg2)					:(opdone)
 
 *	7.10 ZRB  w,_plbl_
@@ -2818,7 +2814,7 @@ g_nzb
 
 g_zrb
 	reg = text(arg1)
-	genop('cmp',reg,reg)
+	genop('cmp',reg,const(0))
 	jump('eq',arg2)					:(opdone)
 
 *	7.11 ZGB   _opn_
@@ -2985,7 +2981,7 @@ g_cvm
 
 	genop('mov',w0,const(10))
 	genop('bl','mli_')
-	genop('cmp',w0,w0)
+	genop('cmp',w0,const(0))
 	jump('ne',arg1)
 	genop('sub',wb,const(ch_d0))
 	genop('subs',ia,wb)
