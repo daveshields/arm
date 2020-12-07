@@ -1389,24 +1389,11 @@ g_bsw
 
 	reg = text(arg1)
 	t2 = genlab()
-	eq(type(arg3))					:s(g_bsw1)
-	ident(text(arg3))				:s(g_bsw1)
-
-*	Here if _plbl_, so generate branch to it if out or range
 
 	genop('cmp',reg,const(text(arg2)))
 	genop('ldrls',PC,'[ PC', reg ', lsl #2]')
-* outfile = 'g_bsw ' datatype(arg3)
-	jump(,arg3)
-
-g_bsw1
-
-*  here after default case check (if needed).
-
-
-	genop('ldr',PC,'[' reg ',' const('cfp_b*' text(arg2)) ']')
-*	genop('ldr',PC)
-	z_suspend = 0
+*	need an instruction following indexed branch above due to arm pipeline
+	jump(,(differ(text(arg3)) arg3, t2))
 							:(opdone)
 
 *	* 1.4  IFF  _val,plbl_	      provide branch for switch
@@ -1428,6 +1415,8 @@ g_iff
 *	* 1.5  ESW	end of branch switch table
 
 g_esw
+
+	genopl(t2)
 							:(opdone)
 
 *	*   1.6	 ENT  _val_ define program entry point
@@ -1945,8 +1934,8 @@ g_blt
 	fetch(w2,arg2)
 	genop('cmp',w1,w2)
 	cmp_label = genlab()
-	jump('hi',cmp_label)
-	jump('ne',arg3)				
+	jump('eq',cmp_label)
+	jump('ls',arg3)				
 	genopl(cmp_label)
 							:(opdone)
 
