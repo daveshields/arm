@@ -1131,7 +1131,7 @@ store_6
 store_7
 store_8
 
-*	w,x, map register name
+*	w,x, store from register name
 
 	genop('mov',text(iarg),reg)				:(return)
 
@@ -1175,11 +1175,6 @@ store_13
 	genop('add',w1,const('cfp_b*' offset))
 	genop(op,reg,'[' w1 ']')				:(return)
 
-store_14
-
-*	clbl(x)
-*	location (x) bytes beyond clbl
-
 store_15
 
 *	name(x), where name is in working section
@@ -1191,30 +1186,12 @@ store_15
 	genop('add',w1,base)
 	genop(op,reg,'[w1]')					:(return)
 
+store_14
 store_18
-*	=dlbl
-
-store_20
-*	=wlbl
-
-store_21
-*	=clbl
-
-store_22
-*	=elbl
-
-*	Types 18, 20,22 are all in text section and so are treated the same.
-
-	genop('mov',reg,text(iarg))				:(return)
-*	genop(op,reg,substr(text(iarg),2))			:(return)
-
 store_19
-
-*	*dlbl
-
-	offset = 'cfp_b*' substr(text(iarg),2)
-	genop('mov',reg,const(offset))				:(return)
- 
+store_20
+store_21
+store_22
 store_23
 store_24
 store_26
